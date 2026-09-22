@@ -7,6 +7,7 @@ import { autosave, downloadDesign, loadAutosave, parseDesignFile } from './persi
 import { MotorBuilder, type Selection } from './ui/MotorBuilder';
 import { ResultsPanel } from './ui/ResultsPanel';
 import { UnitsProvider, useUnits, type LengthUnit } from './ui/UnitsContext';
+import { PropellantLibraryProvider } from './ui/PropellantLibraryContext';
 
 function blankDesign(): MotorDesign {
   return { grains: [], propellant: null, nozzle: defaultNozzle(), config: defaultMotorConfig() };
@@ -44,14 +45,7 @@ function AppInner() {
     setDesign((d) => updater(d));
   };
 
-  const closeMenus = () => {
-    document.querySelectorAll<HTMLDetailsElement>('.menu-bar details[open]').forEach((d) => {
-      d.removeAttribute('open');
-    });
-  };
-
   const handleNew = () => {
-    closeMenus();
     if (!window.confirm('Start a new, blank motor design? Unsaved changes will be lost.')) return;
     setDesign(blankDesign());
     setSelection(null);
@@ -59,12 +53,10 @@ function AppInner() {
   };
 
   const handleSave = () => {
-    closeMenus();
     downloadDesign(design, 'motor.json');
   };
 
   const handleLoadClick = () => {
-    closeMenus();
     fileInputRef.current?.click();
   };
 
@@ -82,7 +74,6 @@ function AppInner() {
   };
 
   const handleRun = () => {
-    closeMenus();
     setRunning(true);
     setError(null);
     // Let the "running" state paint before the (synchronous) simulation blocks the main thread.
@@ -103,35 +94,28 @@ function AppInner() {
   return (
     <div className="app">
       <nav className="menu-bar">
-        <details>
-          <summary>File</summary>
+        <div className="menu-item">
+          <span className="menu-label">File</span>
           <div className="menu-dropdown">
             <button onClick={handleNew}>New</button>
             <button onClick={handleSave}>Save</button>
             <button onClick={handleLoadClick}>Load…</button>
           </div>
-        </details>
-        <details>
-          <summary>Simulate</summary>
+        </div>
+        <div className="menu-item">
+          <span className="menu-label">Simulate</span>
           <div className="menu-dropdown">
             <button onClick={handleRun} disabled={running}>
               {running ? 'Running…' : 'Run Simulation'}
             </button>
           </div>
-        </details>
-        <details>
-          <summary>Help</summary>
+        </div>
+        <div className="menu-item">
+          <span className="menu-label">Help</span>
           <div className="menu-dropdown">
-            <button
-              onClick={() => {
-                closeMenus();
-                setShowAbout(true);
-              }}
-            >
-              About
-            </button>
+            <button onClick={() => setShowAbout(true)}>About</button>
           </div>
-        </details>
+        </div>
 
         <span className="menu-bar-title">openMotor Online</span>
 
@@ -188,7 +172,9 @@ function AppInner() {
 function App() {
   return (
     <UnitsProvider>
-      <AppInner />
+      <PropellantLibraryProvider>
+        <AppInner />
+      </PropellantLibraryProvider>
     </UnitsProvider>
   );
 }

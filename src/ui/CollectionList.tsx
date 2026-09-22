@@ -1,11 +1,18 @@
-import type { GrainConfig, PropellantConfig } from '../physics/types';
+import type { GrainConfig } from '../physics/types';
 import type { Selection } from './MotorBuilder';
 
 interface Props {
   grains: GrainConfig[];
-  propellant: PropellantConfig | null;
+  /** The row highlighted for Up/Down/Copy/Delete — independent of which editor is currently open
+   * (see the double-click note below). */
+  highlightedGrainIndex: number | null;
+  /** Which editor is currently open, purely to also highlight the Nozzle/Config rows when theirs
+   * is the one open. */
   selection: Selection;
-  onSelect: (s: Selection) => void;
+  onHighlightGrain: (index: number) => void;
+  onEditGrain: (index: number) => void;
+  onEditNozzle: () => void;
+  onEditConfig: () => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onCopy: (index: number) => void;
@@ -21,14 +28,27 @@ function describeGrain(g: GrainConfig): string {
 }
 
 /**
- * The unified list of everything the property editor above can edit: each grain, the propellant,
- * the nozzle, and the simulation config — mirroring the original desktop app's single "collection"
- * list (see the comparison in the design discussion). Move/copy/delete only make sense for grain
- * rows.
+ * The unified list of everything the property editor above can edit: each grain, the nozzle, and
+ * the simulation config — mirroring the original desktop app's single "collection" list. A grain
+ * row is a two-step interaction, also matching the original (which has separate Edit/Copy/Delete
+ * buttons next to the list rather than opening on a single click): a single click just selects/
+ * highlights the row (so Up/Down/Copy/Delete know what to act on); double-click opens it in the
+ * property editor above. Nozzle and Config are singletons with no such actions, so a single click
+ * opens them directly.
  */
-export function CollectionList({ grains, propellant, selection, onSelect, onMoveUp, onMoveDown, onCopy, onDelete }: Props) {
-  const selectedGrainIndex = selection?.kind === 'grain' ? selection.index : null;
-
+export function CollectionList({
+  grains,
+  highlightedGrainIndex,
+  selection,
+  onHighlightGrain,
+  onEditGrain,
+  onEditNozzle,
+  onEditConfig,
+  onMoveUp,
+  onMoveDown,
+  onCopy,
+  onDelete,
+}: Props) {
   return (
     <div className="grain-list">
       <table>
@@ -41,7 +61,12 @@ export function CollectionList({ grains, propellant, selection, onSelect, onMove
         </thead>
         <tbody>
           {grains.map((g, i) => (
-            <tr key={i} className={selectedGrainIndex === i ? 'selected' : ''} onClick={() => onSelect({ kind: 'grain', index: i })}>
+            <tr
+              key={i}
+              className={highlightedGrainIndex === i ? 'selected' : ''}
+              onClick={() => onHighlightGrain(i)}
+              onDoubleClick={() => onEditGrain(i)}
+            >
               <td>{i + 1}</td>
               <td>{g.type}</td>
               <td>{describeGrain(g)}</td>
@@ -54,17 +79,12 @@ export function CollectionList({ grains, propellant, selection, onSelect, onMove
               </td>
             </tr>
           )}
-          <tr className={selection?.kind === 'propellant' ? 'selected' : ''} onClick={() => onSelect({ kind: 'propellant' })}>
-            <td>—</td>
-            <td>Propellant</td>
-            <td>{propellant ? propellant.name : '(none selected)'}</td>
-          </tr>
-          <tr className={selection?.kind === 'nozzle' ? 'selected' : ''} onClick={() => onSelect({ kind: 'nozzle' })}>
+          <tr className={selection?.kind === 'nozzle' ? 'selected' : ''} onClick={onEditNozzle}>
             <td>—</td>
             <td>Nozzle</td>
             <td>throat/exit, angles, losses</td>
           </tr>
-          <tr className={selection?.kind === 'config' ? 'selected' : ''} onClick={() => onSelect({ kind: 'config' })}>
+          <tr className={selection?.kind === 'config' ? 'selected' : ''} onClick={onEditConfig}>
             <td>—</td>
             <td>Config</td>
             <td>limits &amp; simulation settings</td>
@@ -72,19 +92,25 @@ export function CollectionList({ grains, propellant, selection, onSelect, onMove
         </tbody>
       </table>
       <div className="grain-list-actions">
-        <button disabled={selectedGrainIndex === null || selectedGrainIndex === 0} onClick={() => selectedGrainIndex !== null && onMoveUp(selectedGrainIndex)}>
+        <button
+          disabled={highlightedGrainIndex === null || highlightedGrainIndex === 0}
+          onClick={() => highlightedGrainIndex !== null && onMoveUp(highlightedGrainIndex)}
+        >
           ↑ Up
         </button>
         <button
-          disabled={selectedGrainIndex === null || selectedGrainIndex === grains.length - 1}
-          onClick={() => selectedGrainIndex !== null && onMoveDown(selectedGrainIndex)}
+          disabled={highlightedGrainIndex === null || highlightedGrainIndex === grains.length - 1}
+          onClick={() => highlightedGrainIndex !== null && onMoveDown(highlightedGrainIndex)}
         >
           ↓ Down
         </button>
-        <button disabled={selectedGrainIndex === null} onClick={() => selectedGrainIndex !== null && onCopy(selectedGrainIndex)}>
+        <button disabled={highlightedGrainIndex === null} onClick={() => highlightedGrainIndex !== null && onEditGrain(highlightedGrainIndex)}>
+          Edit
+        </button>
+        <button disabled={highlightedGrainIndex === null} onClick={() => highlightedGrainIndex !== null && onCopy(highlightedGrainIndex)}>
           Copy
         </button>
-        <button disabled={selectedGrainIndex === null} onClick={() => selectedGrainIndex !== null && onDelete(selectedGrainIndex)}>
+        <button disabled={highlightedGrainIndex === null} onClick={() => highlightedGrainIndex !== null && onDelete(highlightedGrainIndex)}>
           Delete
         </button>
       </div>

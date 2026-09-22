@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildGrain } from '../physics/grains';
 import type { PerforatedGrain } from '../physics/grains/base';
-import { presetPropellants } from '../physics/presetPropellants';
 import { computeGrainPreview } from '../physics/preview';
 import {
   defaultMotorConfig,
@@ -11,8 +10,6 @@ import {
   type MoonBurnerProperties,
   type MotorConfigProperties,
   type NozzleConfig,
-  type PropellantConfig,
-  type PropellantTab,
   type StarGrainProperties,
 } from '../physics/types';
 import type { Selection } from './MotorBuilder';
@@ -184,122 +181,33 @@ function ConfigForm({ config, onChange }: { config: MotorConfigProperties; onCha
   );
 }
 
-function emptyTab(): PropellantTab {
-  return { minPressure: 0, maxPressure: 6895000, a: 1e-5, n: 0.3, k: 1.2, t: 1600, m: 25 };
-}
-
-function TabEditor({ tab, onChange, onRemove, removable }: { tab: PropellantTab; onChange: (t: PropellantTab) => void; onRemove: () => void; removable: boolean }) {
-  return (
-    <div className="propellant-tab-editor">
-      <NumberField label="Min Pressure" unit="Pa" value={tab.minPressure} onChange={(v) => onChange({ ...tab, minPressure: v })} />
-      <NumberField label="Max Pressure" unit="Pa" value={tab.maxPressure} onChange={(v) => onChange({ ...tab, maxPressure: v })} />
-      <NumberField label="Burn Rate Coeff. (a)" unit="m/(s·Pa^n)" value={tab.a} onChange={(v) => onChange({ ...tab, a: v })} />
-      <NumberField label="Burn Rate Exponent (n)" value={tab.n} onChange={(v) => onChange({ ...tab, n: v })} />
-      <NumberField label="Specific Heat Ratio (k)" value={tab.k} onChange={(v) => onChange({ ...tab, k: v })} />
-      <NumberField label="Combustion Temp (t)" unit="K" value={tab.t} onChange={(v) => onChange({ ...tab, t: v })} />
-      <NumberField label="Exhaust Molar Mass (m)" unit="g/mol" value={tab.m} onChange={(v) => onChange({ ...tab, m: v })} />
-      {removable && (
-        <button className="remove-tab-button" onClick={onRemove}>
-          Remove tab
-        </button>
-      )}
-    </div>
-  );
-}
-
-function PropellantForm({ propellant, onChange }: { propellant: PropellantConfig; onChange: (p: PropellantConfig) => void }) {
-  const matchingPreset = presetPropellants.find((p) => p.name === propellant.name);
-
-  return (
-    <>
-      <div className="propellant-preset-row">
-        <label className="field">
-          <span className="field-label">Load Preset</span>
-          <select
-            value=""
-            onChange={(e) => {
-              const preset = presetPropellants.find((p) => p.name === e.target.value);
-              if (preset) onChange(JSON.parse(JSON.stringify(preset)));
-            }}
-          >
-            <option value="" disabled>
-              Choose…
-            </option>
-            {presetPropellants.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          disabled={!matchingPreset}
-          title={matchingPreset ? `Reset all values to the built-in "${propellant.name}" preset` : 'Name does not match a built-in preset'}
-          onClick={() => matchingPreset && onChange(JSON.parse(JSON.stringify(matchingPreset)))}
-        >
-          Reset to Default
-        </button>
-      </div>
-
-      <label className="field">
-        <span className="field-label">Name</span>
-        <input type="text" value={propellant.name} onChange={(e) => onChange({ ...propellant, name: e.target.value })} />
-      </label>
-      <NumberField label="Density" unit="kg/m³" value={propellant.density} onChange={(v) => onChange({ ...propellant, density: v })} />
-
-      <h4>Burn rate tabs</h4>
-      {propellant.tabs.map((tab, i) => (
-        <TabEditor
-          key={i}
-          tab={tab}
-          removable={propellant.tabs.length > 1}
-          onChange={(t) => onChange({ ...propellant, tabs: propellant.tabs.map((tt, ti) => (ti === i ? t : tt)) })}
-          onRemove={() => onChange({ ...propellant, tabs: propellant.tabs.filter((_, ti) => ti !== i) })}
-        />
-      ))}
-      <button onClick={() => onChange({ ...propellant, tabs: [...propellant.tabs, emptyTab()] })}>+ Add Tab</button>
-    </>
-  );
-}
-
 interface Props {
   selection: Selection;
   grain: GrainConfig | null;
   nozzle: NozzleConfig;
   config: MotorConfigProperties;
-  propellant: PropellantConfig | null;
   onApplyGrain: (index: number, grain: GrainConfig) => void;
   onApplyNozzle: (nozzle: NozzleConfig) => void;
   onApplyConfig: (config: MotorConfigProperties) => void;
-  onApplyPropellant: (propellant: PropellantConfig) => void;
+  /** Called after Apply or Cancel, for every kind — the editor always closes back to the empty
+   * state rather than staying open on whatever was just applied/discarded. */
+  onClose: () => void;
 }
 
-export function PropertyEditor({
-  selection,
-  grain,
-  nozzle,
-  config,
-  propellant,
-  onApplyGrain,
-  onApplyNozzle,
-  onApplyConfig,
-  onApplyPropellant,
-}: Props) {
+export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain, onApplyNozzle, onApplyConfig, onClose }: Props) {
   const selectionKey = JSON.stringify(selection);
   const [draftGrain, setDraftGrain] = useState<GrainConfig | null>(grain);
   const [draftNozzle, setDraftNozzle] = useState<NozzleConfig>(nozzle);
   const [draftConfig, setDraftConfig] = useState<MotorConfigProperties>(config);
-  const [draftPropellant, setDraftPropellant] = useState<PropellantConfig | null>(propellant);
 
   // Reset the draft only when the SELECTION changes (a different grain, or switching between
-  // grain/nozzle/config/propellant) — not on every upstream design change — so edits in progress
-  // aren't clobbered until Apply or Cancel is pressed. This is the "collection editor" staging the
+  // grain/nozzle/config) — not on every upstream design change — so edits in progress aren't
+  // clobbered until Apply or Cancel is pressed. This is the "collection editor" staging the
   // original desktop app uses.
   useEffect(() => {
     setDraftGrain(grain);
     setDraftNozzle(nozzle);
     setDraftConfig(config);
-    setDraftPropellant(propellant);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey]);
 
@@ -322,7 +230,7 @@ export function PropertyEditor({
   }, [builtGrain]);
 
   if (!selection) {
-    return <div className="property-editor empty">Select a grain, the nozzle, the propellant, or config to edit its properties.</div>;
+    return <div className="property-editor empty">Double-click a grain, or click the nozzle or config, to edit its properties.</div>;
   }
 
   if (selection.kind === 'nozzle') {
@@ -331,10 +239,16 @@ export function PropertyEditor({
         <h3>Nozzle</h3>
         <NozzleForm nozzle={draftNozzle} onChange={setDraftNozzle} />
         <div className="apply-cancel-row">
-          <button className="primary" onClick={() => onApplyNozzle(draftNozzle)}>
+          <button
+            className="primary"
+            onClick={() => {
+              onApplyNozzle(draftNozzle);
+              onClose();
+            }}
+          >
             Apply
           </button>
-          <button onClick={() => setDraftNozzle(nozzle)}>Cancel</button>
+          <button onClick={onClose}>Cancel</button>
         </div>
       </div>
     );
@@ -345,61 +259,22 @@ export function PropertyEditor({
       <div className="property-editor">
         <h3>Config</h3>
         <div className="propellant-preset-row">
-          <button
-            title="Reset all values to openMotor's built-in defaults"
-            onClick={() => setDraftConfig(defaultMotorConfig())}
-          >
+          <button title="Reset all values to openMotor's built-in defaults" onClick={() => setDraftConfig(defaultMotorConfig())}>
             Reset to Default
           </button>
         </div>
         <ConfigForm config={draftConfig} onChange={setDraftConfig} />
         <div className="apply-cancel-row">
-          <button className="primary" onClick={() => onApplyConfig(draftConfig)}>
+          <button
+            className="primary"
+            onClick={() => {
+              onApplyConfig(draftConfig);
+              onClose();
+            }}
+          >
             Apply
           </button>
-          <button onClick={() => setDraftConfig(config)}>Cancel</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (selection.kind === 'propellant') {
-    if (!draftPropellant) {
-      return (
-        <div className="property-editor">
-          <h3>Propellant</h3>
-          <p className="field-note">No propellant selected yet — pick one to start from.</p>
-          <label className="field">
-            <span className="field-label">Load Preset</span>
-            <select
-              value=""
-              onChange={(e) => {
-                const preset = presetPropellants.find((p) => p.name === e.target.value);
-                if (preset) setDraftPropellant(JSON.parse(JSON.stringify(preset)));
-              }}
-            >
-              <option value="" disabled>
-                Choose…
-              </option>
-              {presetPropellants.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      );
-    }
-    return (
-      <div className="property-editor">
-        <h3>Propellant</h3>
-        <PropellantForm propellant={draftPropellant} onChange={setDraftPropellant} />
-        <div className="apply-cancel-row">
-          <button className="primary" onClick={() => onApplyPropellant(draftPropellant)}>
-            Apply
-          </button>
-          <button onClick={() => setDraftPropellant(propellant)}>Cancel</button>
+          <button onClick={onClose}>Cancel</button>
         </div>
       </div>
     );
@@ -424,10 +299,16 @@ export function PropertyEditor({
               />
             )}
             <div className="apply-cancel-row">
-              <button className="primary" onClick={() => onApplyGrain(selection.index, draftGrain)}>
+              <button
+                className="primary"
+                onClick={() => {
+                  onApplyGrain(selection.index, draftGrain);
+                  onClose();
+                }}
+              >
                 Apply
               </button>
-              <button onClick={() => setDraftGrain(grain)}>Cancel</button>
+              <button onClick={onClose}>Cancel</button>
             </div>
           </div>
           <div className="property-editor-preview">

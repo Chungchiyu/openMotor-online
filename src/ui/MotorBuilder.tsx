@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { defaultGrainConfig } from '../physics/grains';
-import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig, PropellantConfig } from '../physics/types';
+import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig } from '../physics/types';
 import { CollectionList } from './CollectionList';
+import { PropellantEditorDialog } from './PropellantEditorDialog';
+import { usePropellantLibrary } from './PropellantLibraryContext';
 import { PropertyEditor } from './PropertyEditor';
 
-export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | { kind: 'propellant' } | null;
+export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | null;
 
 interface Props {
   design: MotorDesign;
@@ -15,6 +17,9 @@ interface Props {
 
 export function MotorBuilder({ design, selection, onSelectionChange, onDesignChange }: Props) {
   const [newGrainType, setNewGrainType] = useState<GrainConfig['type']>('BATES');
+  const [highlightedGrainIndex, setHighlightedGrainIndex] = useState<number | null>(null);
+  const [showPropellantEditor, setShowPropellantEditor] = useState(false);
+  const { library } = usePropellantLibrary();
 
   const applyGrain = (index: number, grain: GrainConfig) => {
     onDesignChange((d) => ({ ...d, grains: d.grains.map((g, i) => (i === index ? grain : g)) }));
@@ -28,13 +33,8 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
     onDesignChange((d) => ({ ...d, config }));
   };
 
-  const applyPropellant = (propellant: PropellantConfig) => {
-    onDesignChange((d) => ({ ...d, propellant }));
-  };
-
   const addGrain = () => {
     onDesignChange((d) => ({ ...d, grains: [...d.grains, defaultGrainConfig(newGrainType)] }));
-    onSelectionChange({ kind: 'grain', index: design.grains.length });
   };
 
   const moveGrain = (index: number, dir: -1 | 1) => {
@@ -45,7 +45,7 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
       [grains[index], grains[target]] = [grains[target], grains[index]];
       return { ...d, grains };
     });
-    onSelectionChange({ kind: 'grain', index: index + dir });
+    setHighlightedGrainIndex(index + dir);
   };
 
   const copyGrain = (index: number) => {
@@ -58,44 +58,92 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
 
   const deleteGrain = (index: number) => {
     onDesignChange((d) => ({ ...d, grains: d.grains.filter((_, i) => i !== index) }));
+    setHighlightedGrainIndex(null);
     onSelectionChange(null);
+  };
+
+  // "Exit" after Apply or Cancel: the editor closes back to empty rather than staying open on
+  // whatever was just applied/discarded, and the list row it was editing un-highlights too.
+  const closeEditor = () => {
+    onSelectionChange(null);
+    setHighlightedGrainIndex(null);
   };
 
   return (
     <div className="motor-builder">
-      <PropertyEditor
-        selection={selection}
-        grain={selection?.kind === 'grain' ? design.grains[selection.index] : null}
-        nozzle={design.nozzle}
-        config={design.config}
-        propellant={design.propellant}
-        onApplyGrain={applyGrain}
-        onApplyNozzle={applyNozzle}
-        onApplyConfig={applyConfig}
-        onApplyPropellant={applyPropellant}
-      />
-
-      <hr />
-
-      <CollectionList
-        grains={design.grains}
-        propellant={design.propellant}
-        selection={selection}
-        onSelect={onSelectionChange}
-        onMoveUp={(i) => moveGrain(i, -1)}
-        onMoveDown={(i) => moveGrain(i, 1)}
-        onCopy={copyGrain}
-        onDelete={deleteGrain}
-      />
-
-      <div className="add-grain-row">
-        <select value={newGrainType} onChange={(e) => setNewGrainType(e.target.value as GrainConfig['type'])}>
-          <option value="BATES">BATES</option>
-          <option value="Star Grain">Star Grain</option>
-          <option value="Moon Burner">Moon Burner</option>
-        </select>
-        <button onClick={addGrain}>+ Add Grain</button>
+      <div className="motor-builder-editor">
+        <PropertyEditor
+          selection={selection}
+          grain={selection?.kind === 'grain' ? design.grains[selection.index] : null}
+          nozzle={design.nozzle}
+          config={design.config}
+          onApplyGrain={applyGrain}
+          onApplyNozzle={applyNozzle}
+          onApplyConfig={applyConfig}
+          onClose={closeEditor}
+        />
       </div>
+
+      <div className="motor-builder-list">
+        <hr />
+
+        <div className="propellant-row">
+          <label className="field">
+            <span className="field-label">Propellant</span>
+            <select
+              value={design.propellant?.name ?? ''}
+              onChange={(e) => {
+                const propellant = library.find((p) => p.name === e.target.value) ?? null;
+                onDesignChange((d) => ({ ...d, propellant }));
+              }}
+            >
+              <option value="" disabled>
+                Select a propellant…
+              </option>
+              {library.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button onClick={() => setShowPropellantEditor(true)}>Propellant Editor</button>
+        </div>
+
+        <CollectionList
+          grains={design.grains}
+          highlightedGrainIndex={highlightedGrainIndex}
+          selection={selection}
+          onHighlightGrain={setHighlightedGrainIndex}
+          onEditGrain={(i) => {
+            setHighlightedGrainIndex(i);
+            onSelectionChange({ kind: 'grain', index: i });
+          }}
+          onEditNozzle={() => {
+            setHighlightedGrainIndex(null);
+            onSelectionChange({ kind: 'nozzle' });
+          }}
+          onEditConfig={() => {
+            setHighlightedGrainIndex(null);
+            onSelectionChange({ kind: 'config' });
+          }}
+          onMoveUp={(i) => moveGrain(i, -1)}
+          onMoveDown={(i) => moveGrain(i, 1)}
+          onCopy={copyGrain}
+          onDelete={deleteGrain}
+        />
+
+        <div className="add-grain-row">
+          <select value={newGrainType} onChange={(e) => setNewGrainType(e.target.value as GrainConfig['type'])}>
+            <option value="BATES">BATES</option>
+            <option value="Star Grain">Star Grain</option>
+            <option value="Moon Burner">Moon Burner</option>
+          </select>
+          <button onClick={addGrain}>+ Add Grain</button>
+        </div>
+      </div>
+
+      {showPropellantEditor && <PropellantEditorDialog onClose={() => setShowPropellantEditor(false)} />}
     </div>
   );
 }

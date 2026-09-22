@@ -15,7 +15,11 @@
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  /* A fixed height (not min-height) so .main-columns below gets a real, bounded height to pass
+   * down to .left-column — that's what lets the editor scroll internally while the grain list
+   * stays anchored at the bottom of the column instead of the whole page growing/scrolling. */
+  height: 100svh;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -33,31 +37,34 @@
   position: relative;
 }
 
-.menu-bar summary {
-  list-style: none;
-  cursor: pointer;
+.menu-item {
+  position: relative;
+}
+
+.menu-label {
+  display: block;
+  cursor: default;
+  user-select: none;
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 13px;
   color: var(--text);
 }
 
-.menu-bar summary::-webkit-details-marker {
-  display: none;
-}
-
-.menu-bar details[open] summary,
-.menu-bar summary:hover {
+.menu-item:hover .menu-label {
   background: var(--accent-bg);
   color: var(--text-h);
 }
 
+/* Hover-driven, not click-driven: the dropdown appears while the pointer is over the menu item
+   (label or panel) and disappears the moment it leaves, matching how the person asked for this to
+   behave rather than requiring a click to open and another click elsewhere to close. */
 .menu-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   margin-top: 2px;
-  display: flex;
+  display: none;
   flex-direction: column;
   min-width: 160px;
   background: var(--bg-raised);
@@ -66,6 +73,10 @@
   padding: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 10;
+}
+
+.menu-item:hover .menu-dropdown {
+  display: flex;
 }
 
 .menu-dropdown button {
@@ -124,6 +135,76 @@
   margin-top: 0;
 }
 
+.propellant-editor-dialog {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: min(900px, 92vw);
+  height: min(640px, 88svh);
+  display: flex;
+  flex-direction: column;
+}
+
+.propellant-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.propellant-editor-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.propellant-editor-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.propellant-editor-list {
+  width: 220px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.propellant-editor-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.propellant-editor-list li {
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.propellant-editor-list li.selected {
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.propellant-editor-list-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.propellant-editor-form {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
 button {
   font: inherit;
   padding: 6px 12px;
@@ -162,6 +243,10 @@ button.active {
 
 .main-columns {
   flex: 1;
+  /* Flex items default to min-height:auto, which lets their content force them taller than the
+   * flex:1 share they were assigned — this is what let .left-column grow past the viewport
+   * instead of being capped, breaking the anchor-list-to-bottom layout below. */
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(320px, 480px) 1fr;
   gap: 0;
@@ -176,17 +261,34 @@ button.active {
 .left-column,
 .right-column {
   padding: 16px 20px;
+}
+
+.right-column {
   overflow: auto;
 }
 
 .left-column {
   border-right: 1px solid var(--border);
+  /* The editor (top) and the grain list + its controls (bottom) are two independently-sized
+   * regions rather than one scrolling column, so the list's buttons stay put at the bottom of the
+   * panel no matter how tall the currently-open editor form is (a long propellant or config form
+   * vs. a short grain form) — see .motor-builder-editor / .motor-builder-list. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @media (max-width: 900px) {
   .left-column {
     border-right: none;
     border-bottom: 1px solid var(--border);
+    /* The anchor-to-bottom trick needs a real height budget from the grid row, which a stacked
+     * mobile layout can't give it without also capping the whole page's height awkwardly — so on
+     * narrow screens this column reverts to flowing/scrolling normally instead. */
+    display: block;
+    overflow: auto;
+    max-height: 70svh;
   }
 }
 
@@ -240,22 +342,33 @@ button.active {
 }
 
 .property-editor-preview {
-  width: 220px;
+  /* Responsive rather than a fixed pixel width, so the preview (and its tab labels) get more
+   * room on a wider window instead of always being squeezed into the same 220px. */
+  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 320px;
 }
 
 .grain-preview-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* Lets .tab-bar.small's cqi font-size respond to this panel's own width (which itself is
+   * responsive — see .property-editor-preview) rather than the viewport. */
+  container-type: inline-size;
 }
 
 .tab-bar.small {
   gap: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .tab-bar.small button {
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: clamp(10px, 2.6cqi, 12px);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .propellant-preset-row {
@@ -326,6 +439,33 @@ button.active {
   opacity: 0.8;
 }
 
+/* --- Motor builder: fixed top (editor) / bottom (list) split --- */
+
+.motor-builder {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.motor-builder-editor {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.motor-builder-list {
+  flex: 0 0 auto;
+  padding-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .motor-builder-editor {
+    overflow-y: visible;
+  }
+}
+
 /* --- Propellant row / collection list --- */
 
 .propellant-row {
@@ -354,6 +494,12 @@ button.active {
 
 .grain-list tr.selected {
   background: var(--accent-bg);
+}
+
+.grain-list tbody tr {
+  /* Rows are double-clicked to open the editor; without this the browser's default
+   * double-click-to-select-text kicks in and flashes a text selection first. */
+  user-select: none;
 }
 
 .grain-list tbody tr:not(.selected) {
@@ -490,18 +636,25 @@ button.active {
   flex-wrap: wrap;
 }
 
-.grain-snapshot-table {
-  font-size: 13px;
+.grains-results-table {
+  width: 100%;
   border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
 }
 
-.grain-snapshot-table td {
-  padding: 2px 8px;
+.grains-results-table th,
+.grains-results-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
 
-.grain-snapshot-table td:first-child {
+.grains-results-table th {
   color: var(--text);
   opacity: 0.75;
+  font-weight: 500;
 }
 
 .alerts-table {
