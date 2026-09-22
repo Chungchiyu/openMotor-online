@@ -1,0 +1,46 @@
+/**
+ * Builds the data behind the live grain cross-section preview: the core shape raster plus a
+ * handful of evenly-spaced regression contours, computed at a small resolution so it can be
+ * recomputed on every form edit without lag. Used by the UI's GrainPreviewCanvas — kept out of the
+ * React layer so it stays testable as plain data in/data out.
+ */
+import { marchContour, type Segment } from './contours';
+import { fastMarchDistance } from './fmm';
+import type { PerforatedGrain } from './grains/base';
+
+export interface GrainPreview {
+  dim: number;
+  /** 0 = core/void, 1 = propellant, row-major. */
+  coreMap: Float64Array;
+  inDomain: Uint8Array;
+  contours: Segment[][];
+  /** Kept so callers (e.g. the results scrubber) can cheaply draw one more contour at an
+   * arbitrary regression fraction without re-running the fast marching method. */
+  regressionMap: Float64Array;
+  maxDist: number;
+}
+
+export function computeGrainPreview(grain: PerforatedGrain, dim = 160, numContours = 6): GrainPreview {
+  const { coreMap, inDomain } = grain.getPreviewRaster(dim);
+  const h = 2 / dim;
+  const regressionMap = fastMarchDistance(coreMap, inDomain, dim, h);
+
+  let maxDist = 0;
+  for (let i = 0; i < regressionMap.length; i++) {
+    if (inDomain[i] === 1 && Number.isFinite(regressionMap[i])) maxDist = Math.max(maxDist, regressionMap[i]);
+  }
+
+  const contours: Segment[][] = [];
+  for (let k = 1; k < numContours; k++) {
+    const level = (maxDist * k) / numContours;
+    contours.push(marchContour(regressionMap, dim, level, inDomain).segments);
+  }
+
+  return { dim, coreMap, inDomain, contours, regressionMap, maxDist };
+}
+
+/** Draws one additional contour at `fraction` (0-1) of the preview's max regression depth. */
+export function contourAtFraction(preview: GrainPreview, fraction: number): Segment[] {
+  const level = preview.maxDist * Math.min(Math.max(fraction, 0), 1);
+  return marchContour(preview.regressionMap, preview.dim, level, preview.inDomain).segments;
+}
