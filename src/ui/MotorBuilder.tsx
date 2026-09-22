@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { defaultGrainConfig } from '../physics/grains';
 import { presetPropellants } from '../physics/presetPropellants';
-import type { GrainConfig, MotorDesign, NozzleConfig } from '../physics/types';
-import { GrainList } from './GrainList';
+import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig } from '../physics/types';
+import { CollectionList } from './CollectionList';
 import { PropertyEditor } from './PropertyEditor';
 
-export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | null;
+export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | null;
 
 interface Props {
   design: MotorDesign;
@@ -17,12 +17,16 @@ interface Props {
 export function MotorBuilder({ design, selection, onSelectionChange, onDesignChange }: Props) {
   const [newGrainType, setNewGrainType] = useState<GrainConfig['type']>('BATES');
 
-  const updateGrain = (index: number, grain: GrainConfig) => {
+  const applyGrain = (index: number, grain: GrainConfig) => {
     onDesignChange((d) => ({ ...d, grains: d.grains.map((g, i) => (i === index ? grain : g)) }));
   };
 
-  const updateNozzle = (nozzle: NozzleConfig) => {
+  const applyNozzle = (nozzle: NozzleConfig) => {
     onDesignChange((d) => ({ ...d, nozzle }));
+  };
+
+  const applyConfig = (config: MotorConfigProperties) => {
+    onDesignChange((d) => ({ ...d, config }));
   };
 
   const addGrain = () => {
@@ -54,16 +58,16 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
     onSelectionChange(null);
   };
 
-  const selectedIndex = selection?.kind === 'grain' ? selection.index : null;
-
   return (
     <div className="motor-builder">
       <PropertyEditor
-        {...(selection?.kind === 'grain'
-          ? { kind: 'grain' as const, grain: design.grains[selection.index], onGrainChange: (g: GrainConfig) => updateGrain(selection.index, g) }
-          : selection?.kind === 'nozzle'
-            ? { kind: 'nozzle' as const, nozzle: design.nozzle, onNozzleChange: updateNozzle }
-            : { kind: 'none' as const })}
+        selection={selection}
+        grain={selection?.kind === 'grain' ? design.grains[selection.index] : null}
+        nozzle={design.nozzle}
+        config={design.config}
+        onApplyGrain={applyGrain}
+        onApplyNozzle={applyNozzle}
+        onApplyConfig={applyConfig}
       />
 
       <hr />
@@ -88,15 +92,12 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
             ))}
           </select>
         </label>
-        <button className={selection?.kind === 'nozzle' ? 'active' : ''} onClick={() => onSelectionChange({ kind: 'nozzle' })}>
-          Edit Nozzle
-        </button>
       </div>
 
-      <GrainList
+      <CollectionList
         grains={design.grains}
-        selectedIndex={selectedIndex}
-        onSelect={(i) => onSelectionChange({ kind: 'grain', index: i })}
+        selection={selection}
+        onSelect={onSelectionChange}
         onMoveUp={(i) => moveGrain(i, -1)}
         onMoveDown={(i) => moveGrain(i, 1)}
         onCopy={copyGrain}

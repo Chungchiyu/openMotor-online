@@ -2,6 +2,7 @@
  * Simulation result container. Ported from motorlib/simResult.py — trimmed to the channels and
  * derived statistics the MVP UI actually surfaces.
  */
+import { arrayMax } from './arrayMath';
 import { standardGravity } from './constants';
 import * as geometry from './geometry';
 import type { Grain } from './grains/base';
@@ -17,6 +18,10 @@ export class SimulationResult {
   grains: Grain[];
   success = false;
   alerts: SimAlert[] = [];
+  /** Tracks the max of `channels.force` incrementally as it's appended (via `pushForce`), so
+   * `shouldContinueSim` — called once per simulation step — doesn't have to rescan the whole
+   * force history every time (that made a long run O(n^2); see largeRun.test.ts). */
+  private maxForceSoFar = -Infinity;
 
   channels: Record<SingleValueChannel, number[]> = {
     time: [],
@@ -46,6 +51,13 @@ export class SimulationResult {
     this.alerts.push(alert);
   }
 
+  /** Appends to `channels.force` and updates the running max used by `shouldContinueSim`. Motor's
+   * simulation loop must use this instead of pushing to `channels.force` directly. */
+  pushForce(value: number): void {
+    this.channels.force.push(value);
+    if (value > this.maxForceSoFar) this.maxForceSoFar = value;
+  }
+
   getAlertsByLevel(level: SimAlertLevel): SimAlert[] {
     return this.alerts.filter((a) => a.level === level);
   }
@@ -63,7 +75,7 @@ export class SimulationResult {
   }
 
   getPeakKN(): number {
-    return Math.max(...this.channels.kn);
+    return arrayMax(this.channels.kn);
   }
 
   getAveragePressure(): number {
@@ -72,7 +84,7 @@ export class SimulationResult {
   }
 
   getMaxPressure(): number {
-    return Math.max(...this.channels.pressure);
+    return arrayMax(this.channels.pressure);
   }
 
   getPercentBelowThreshold(channel: SingleValueChannel, threshold: number): number {
@@ -117,11 +129,11 @@ export class SimulationResult {
   }
 
   getPeakMassFlux(): number {
-    return Math.max(...this.multiChannels.massFlux.map((frame) => Math.max(...frame)));
+    return arrayMax(this.multiChannels.massFlux.map((frame) => arrayMax(frame)));
   }
 
   getPeakMachNumber(): number {
-    return Math.max(...this.multiChannels.machNumber.map((frame) => Math.max(...frame)));
+    return arrayMax(this.multiChannels.machNumber.map((frame) => arrayMax(frame)));
   }
 
   getISP(index?: number): number {
@@ -142,7 +154,7 @@ export class SimulationResult {
   }
 
   getMaxPropellantDiameter(): number {
-    return Math.max(...this.design.grains.map((g) => g.properties.diameter));
+    return arrayMax(this.design.grains.map((g) => g.properties.diameter));
   }
 
   getPropellantMass(index = 0): number {
@@ -169,7 +181,7 @@ export class SimulationResult {
 
   shouldContinueSim(thrustThres: number): boolean {
     if (this.channels.time.length === 1) return true;
-    return this.last(this.channels.force) > thrustThres * 0.01 * Math.max(...this.channels.force);
+    return this.last(this.channels.force) > thrustThres * 0.01 * this.maxForceSoFar;
   }
 }
 

@@ -127,7 +127,7 @@ export class Motor {
     simRes.channels.time.push(0);
     simRes.channels.kn.push(this.calcKN(perGrainReg, 0));
     simRes.channels.pressure.push(this.calcIdealPressure(perGrainReg, 0));
-    simRes.channels.force.push(0);
+    simRes.pushForce(0);
     simRes.multiChannels.mass.push(this.grains.map((g) => g.getVolumeAtRegression(0) * density));
     simRes.channels.volumeLoading.push(100 * (1 - this.calcFreeVolume(perGrainReg) / motorVolume));
     simRes.multiChannels.massFlow.push(this.grains.map(() => 0));
@@ -207,7 +207,7 @@ export class Motor {
 
       const lastPressure = simRes.channels.pressure[simRes.channels.pressure.length - 1];
       const force = this.calcForce(lastPressure, dThroat, exitPressure);
-      simRes.channels.force.push(force);
+      simRes.pushForce(force);
 
       simRes.channels.time.push(simRes.channels.time[simRes.channels.time.length - 1] + dTime);
 

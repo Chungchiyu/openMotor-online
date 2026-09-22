@@ -6,10 +6,9 @@ import { GrainPreviewCanvas } from './GrainPreviewCanvas';
 
 interface Props {
   result: SimulationResult;
-  onTimeChange?: (time: number) => void;
 }
 
-export function TimeScrubberPanel({ result, onTimeChange }: Props) {
+export function TimeScrubberPanel({ result }: Props) {
   const numSteps = result.channels.time.length;
   const [grainIndex, setGrainIndex] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
@@ -37,7 +36,6 @@ export function TimeScrubberPanel({ result, onTimeChange }: Props) {
 
   const handleStep = (value: number) => {
     setStepIndex(value);
-    onTimeChange?.(result.channels.time[value] ?? 0);
   };
 
   return (
