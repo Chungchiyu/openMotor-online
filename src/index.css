@@ -17,7 +17,10 @@
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+  /* Just "dark", not "light dark" — the app is unconditionally dark (see App.css), and leaving
+     "light" as an option let the browser paint some native form controls (e.g. a closed <select>)
+     with light-theme chrome despite the dark background/color set on them everywhere else. */
+  color-scheme: dark;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;

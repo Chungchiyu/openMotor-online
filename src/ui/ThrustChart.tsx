@@ -129,7 +129,7 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
   }
 
   return (
-    <div style={{ height: 320 }}>
+    <div style={{ height: '100%', minHeight: 280 }}>
       <Line data={data as never} options={options} />
     </div>
   );

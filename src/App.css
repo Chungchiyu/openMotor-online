@@ -199,6 +199,10 @@
   border-top: 1px solid var(--border);
 }
 
+.propellant-editor-list-actions button {
+  flex: 1;
+}
+
 .propellant-editor-form {
   flex: 1;
   overflow-y: auto;
@@ -213,6 +217,33 @@ button {
   background: var(--bg-raised);
   color: var(--text-h);
   cursor: pointer;
+  /* A button's text never wraps to a second line — that was inflating some buttons (e.g.
+   * "Propellant Editor") to twice the height of every one-word button next to them. */
+  white-space: nowrap;
+}
+
+/* Every <select> gets the same dark-theme treatment regardless of what it's nested in — some
+ * (e.g. the "add grain" type picker) weren't wrapped in .field and were falling back to
+ * unstyled browser defaults, which is why the dropdowns looked inconsistent. */
+select {
+  font: inherit;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+/* A row of related action buttons (Up/Down/Edit/Copy/Delete, Apply/Cancel, New/Delete, …) reads
+ * as one consistent bar when every button in it shares the row's width evenly, instead of each
+ * being sized to its own label and leaving a ragged mix of widths. */
+.button-row {
+  display: flex;
+  gap: 6px;
+}
+
+.button-row button {
+  flex: 1;
 }
 
 button:hover:not(:disabled) {
@@ -264,7 +295,20 @@ button.active {
 }
 
 .right-column {
-  overflow: auto;
+  /* Bounded height for the same reason as .left-column: Motor Statistics stays anchored at the
+   * bottom and visible, instead of a tall Y-axis fieldset list pushing it down the page — see
+   * .results-panel-header/-body/-footer. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .right-column {
+    display: block;
+    overflow: auto;
+  }
 }
 
 .left-column {
@@ -330,6 +374,10 @@ button.active {
   display: flex;
   gap: 8px;
   margin-top: 8px;
+}
+
+.apply-cancel-row button {
+  flex: 1;
 }
 
 .property-editor h4 {
@@ -518,6 +566,11 @@ button.active {
   flex-wrap: wrap;
 }
 
+.grain-list-actions button {
+  flex: 1 1 0;
+  min-width: 56px;
+}
+
 .add-grain-row {
   display: flex;
   gap: 8px;
@@ -529,7 +582,36 @@ button.active {
 .results-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+}
+
+.results-panel-header {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The space between the tab bar and Motor Statistics. Its child (whichever tab is active) is
+ * asked to fill it (flex: 1) and manage its own internal scrolling, rather than growing past it
+ * and pushing Motor Statistics down/off screen. */
+.results-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.results-panel-body > * {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.results-panel-footer {
+  flex: 0 0 auto;
 }
 
 .tab-bar {
@@ -555,7 +637,6 @@ button.active {
 .graph-tab {
   display: flex;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
 .axis-controls {
@@ -563,12 +644,17 @@ button.active {
   flex-direction: column;
   gap: 10px;
   min-width: 160px;
+  /* Scrolls on its own once the Y-axis checklist (12 channels) doesn't fit, instead of the whole
+   * Graph tab growing and pushing Motor Statistics out of view. */
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .axis-controls fieldset {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
+  flex-shrink: 0;
 }
 
 .axis-controls legend {
@@ -589,9 +675,25 @@ button.active {
   white-space: nowrap;
 }
 
-.graph-tab > div:last-child {
+.graph-tab-chart {
   flex: 1;
   min-width: 280px;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .graph-tab {
+    flex-direction: column;
+  }
+
+  .axis-controls {
+    overflow-y: visible;
+  }
+
+  .graph-tab-chart {
+    flex: none;
+    height: 320px;
+  }
 }
 
 .chart-placeholder {
