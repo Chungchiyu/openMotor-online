@@ -21,9 +21,18 @@ export interface StarGrainProperties {
   inhibitedEnds: InhibitedEnds;
 }
 
+export interface MoonBurnerProperties {
+  diameter: number;
+  length: number;
+  coreDiameter: number;
+  coreOffset: number;
+  inhibitedEnds: InhibitedEnds;
+}
+
 export type GrainConfig =
   | { type: 'BATES'; properties: BatesGrainProperties }
-  | { type: 'Star Grain'; properties: StarGrainProperties };
+  | { type: 'Star Grain'; properties: StarGrainProperties }
+  | { type: 'Moon Burner'; properties: MoonBurnerProperties };
 
 export interface PropellantTab {
   minPressure: number;

@@ -7,6 +7,8 @@ interface Props {
   /** 0-1 fraction of the grain's max regression depth to highlight, e.g. from the time scrubber. */
   highlightFraction?: number;
   size?: number;
+  /** false shows just the current core shape with no regression contours ("Face" tab). */
+  showContours?: boolean;
 }
 
 function drawSegments(ctx: CanvasRenderingContext2D, segments: Segment[], dim: number, size: number, style: string, width: number) {
@@ -21,7 +23,7 @@ function drawSegments(ctx: CanvasRenderingContext2D, segments: Segment[], dim: n
   ctx.stroke();
 }
 
-export function GrainPreviewCanvas({ preview, highlightFraction, size = 220 }: Props) {
+export function GrainPreviewCanvas({ preview, highlightFraction, size = 220, showContours = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -69,15 +71,17 @@ export function GrainPreviewCanvas({ preview, highlightFraction, size = 220 }: P
     }
     ctx.putImageData(image, 0, 0);
 
-    for (const contour of preview.contours) {
-      drawSegments(ctx, contour, dim, size, 'rgba(120, 72, 24, 0.55)', 1);
+    if (showContours) {
+      for (const contour of preview.contours) {
+        drawSegments(ctx, contour, dim, size, 'rgba(120, 72, 24, 0.55)', 1);
+      }
     }
 
     if (highlightFraction !== undefined) {
       const highlight = contourAtFraction(preview, highlightFraction);
       drawSegments(ctx, highlight, dim, size, '#1d4ed8', 2);
     }
-  }, [preview, highlightFraction, size]);
+  }, [preview, highlightFraction, size, showContours]);
 
   return <canvas ref={canvasRef} width={size} height={size} style={{ borderRadius: 8, background: '#fff' }} />;
 }

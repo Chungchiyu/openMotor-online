@@ -8,6 +8,13 @@ import { marchContour, type Segment } from './contours';
 import { fastMarchDistance } from './fmm';
 import type { PerforatedGrain } from './grains/base';
 
+export interface AreaProfilePoint {
+  /** Real-unit regression distance (m). */
+  regDist: number;
+  /** Real-unit face (burning cross-section) area (m^2). */
+  faceArea: number;
+}
+
 export interface GrainPreview {
   dim: number;
   /** 0 = core/void, 1 = propellant, row-major. */
@@ -18,6 +25,10 @@ export interface GrainPreview {
    * arbitrary regression fraction without re-running the fast marching method. */
   regressionMap: Float64Array;
   maxDist: number;
+  /** Real-unit max regression distance (m) — i.e. the wall web thickness. */
+  maxRegDist: number;
+  /** Face area vs. regression depth, for the "Area Graph" preview tab. */
+  areaProfile: AreaProfilePoint[];
 }
 
 export function computeGrainPreview(grain: PerforatedGrain, dim = 160, numContours = 6): GrainPreview {
@@ -36,7 +47,23 @@ export function computeGrainPreview(grain: PerforatedGrain, dim = 160, numContou
     contours.push(marchContour(regressionMap, dim, level, inDomain).segments);
   }
 
-  return { dim, coreMap, inDomain, contours, regressionMap, maxDist };
+  // normalize()/unNormalize() are only defined on FmmGrain, but the relationship (radius = 1 in
+  // normalized space) is the same for every PerforatedGrain, so it's reproduced here rather than
+  // depending on a method BATES doesn't have.
+  const radius = grain.diameter / 2;
+  const numAreaSamples = 30;
+  const areaProfile: AreaProfilePoint[] = [];
+  for (let k = 0; k <= numAreaSamples; k++) {
+    const level = (maxDist * k) / numAreaSamples;
+    let count = 0;
+    for (let i = 0; i < regressionMap.length; i++) {
+      if (inDomain[i] === 1 && regressionMap[i] > level) count++;
+    }
+    const faceArea = grain.diameter ** 2 * (count / dim ** 2);
+    areaProfile.push({ regDist: level * radius, faceArea });
+  }
+
+  return { dim, coreMap, inDomain, contours, regressionMap, maxDist, maxRegDist: maxDist * radius, areaProfile };
 }
 
 /** Draws one additional contour at `fraction` (0-1) of the preview's max regression depth. */

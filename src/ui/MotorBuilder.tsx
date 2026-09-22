@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { defaultGrainConfig } from '../physics/grains';
-import { presetPropellants } from '../physics/presetPropellants';
-import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig } from '../physics/types';
+import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig, PropellantConfig } from '../physics/types';
 import { CollectionList } from './CollectionList';
 import { PropertyEditor } from './PropertyEditor';
 
-export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | null;
+export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | { kind: 'propellant' } | null;
 
 interface Props {
   design: MotorDesign;
@@ -27,6 +26,10 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
 
   const applyConfig = (config: MotorConfigProperties) => {
     onDesignChange((d) => ({ ...d, config }));
+  };
+
+  const applyPropellant = (propellant: PropellantConfig) => {
+    onDesignChange((d) => ({ ...d, propellant }));
   };
 
   const addGrain = () => {
@@ -65,37 +68,18 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
         grain={selection?.kind === 'grain' ? design.grains[selection.index] : null}
         nozzle={design.nozzle}
         config={design.config}
+        propellant={design.propellant}
         onApplyGrain={applyGrain}
         onApplyNozzle={applyNozzle}
         onApplyConfig={applyConfig}
+        onApplyPropellant={applyPropellant}
       />
 
       <hr />
 
-      <div className="propellant-row">
-        <label className="field">
-          <span className="field-label">Propellant</span>
-          <select
-            value={design.propellant?.name ?? ''}
-            onChange={(e) => {
-              const propellant = presetPropellants.find((p) => p.name === e.target.value) ?? null;
-              onDesignChange((d) => ({ ...d, propellant }));
-            }}
-          >
-            <option value="" disabled>
-              Select a propellant…
-            </option>
-            {presetPropellants.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
       <CollectionList
         grains={design.grains}
+        propellant={design.propellant}
         selection={selection}
         onSelect={onSelectionChange}
         onMoveUp={(i) => moveGrain(i, -1)}
@@ -108,6 +92,7 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
         <select value={newGrainType} onChange={(e) => setNewGrainType(e.target.value as GrainConfig['type'])}>
           <option value="BATES">BATES</option>
           <option value="Star Grain">Star Grain</option>
+          <option value="Moon Burner">Moon Burner</option>
         </select>
         <button onClick={addGrain}>+ Add Grain</button>
       </div>

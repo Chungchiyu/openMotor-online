@@ -1,8 +1,9 @@
-import type { GrainConfig } from '../physics/types';
+import type { GrainConfig, PropellantConfig } from '../physics/types';
 import type { Selection } from './MotorBuilder';
 
 interface Props {
   grains: GrainConfig[];
+  propellant: PropellantConfig | null;
   selection: Selection;
   onSelect: (s: Selection) => void;
   onMoveUp: (index: number) => void;
@@ -12,16 +13,20 @@ interface Props {
 }
 
 function describeGrain(g: GrainConfig): string {
-  if (g.type === 'BATES') return `Ø${(g.properties.diameter * 1000).toFixed(1)}mm L${(g.properties.length * 1000).toFixed(0)}mm`;
-  return `${g.properties.numPoints}-point Ø${(g.properties.diameter * 1000).toFixed(1)}mm L${(g.properties.length * 1000).toFixed(0)}mm`;
+  const dia = `Ø${(g.properties.diameter * 1000).toFixed(1)}mm`;
+  const len = `L${(g.properties.length * 1000).toFixed(0)}mm`;
+  if (g.type === 'BATES') return `${dia} ${len}`;
+  if (g.type === 'Star Grain') return `${g.properties.numPoints}-point ${dia} ${len}`;
+  return `${dia} ${len}, offset ${(g.properties.coreOffset * 1000).toFixed(1)}mm`;
 }
 
 /**
- * The unified list of everything the property editor above can edit: each grain, the nozzle, and
- * the simulation config — mirroring the original desktop app's single "collection" list (see the
- * comparison in the design discussion). Move/copy/delete only make sense for grain rows.
+ * The unified list of everything the property editor above can edit: each grain, the propellant,
+ * the nozzle, and the simulation config — mirroring the original desktop app's single "collection"
+ * list (see the comparison in the design discussion). Move/copy/delete only make sense for grain
+ * rows.
  */
-export function CollectionList({ grains, selection, onSelect, onMoveUp, onMoveDown, onCopy, onDelete }: Props) {
+export function CollectionList({ grains, propellant, selection, onSelect, onMoveUp, onMoveDown, onCopy, onDelete }: Props) {
   const selectedGrainIndex = selection?.kind === 'grain' ? selection.index : null;
 
   return (
@@ -49,6 +54,11 @@ export function CollectionList({ grains, selection, onSelect, onMoveUp, onMoveDo
               </td>
             </tr>
           )}
+          <tr className={selection?.kind === 'propellant' ? 'selected' : ''} onClick={() => onSelect({ kind: 'propellant' })}>
+            <td>—</td>
+            <td>Propellant</td>
+            <td>{propellant ? propellant.name : '(none selected)'}</td>
+          </tr>
           <tr className={selection?.kind === 'nozzle' ? 'selected' : ''} onClick={() => onSelect({ kind: 'nozzle' })}>
             <td>—</td>
             <td>Nozzle</td>

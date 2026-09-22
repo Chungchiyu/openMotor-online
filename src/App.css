@@ -230,6 +230,56 @@ button.active {
   margin-top: 8px;
 }
 
+.property-editor h4 {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.property-editor-preview {
+  width: 220px;
+}
+
+.grain-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tab-bar.small {
+  gap: 0;
+}
+
+.tab-bar.small button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.propellant-preset-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.propellant-tab-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.remove-tab-button {
+  align-self: flex-start;
+  font-size: 12px;
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -249,6 +299,7 @@ button.active {
 }
 
 .field input[type='number'],
+.field input[type='text'],
 .field select {
   font: inherit;
   padding: 4px 6px;
