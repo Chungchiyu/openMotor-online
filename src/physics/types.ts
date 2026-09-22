@@ -102,14 +102,23 @@ export interface SimAlert {
   location?: string;
 }
 
+/**
+ * Matches openMotor's own `DEFAULT_PREFERENCES['general']` (uilib/defaults.py) exactly, with one
+ * deliberate exception: `mapDim` is 400 here, not 750. That only affects the fast-marching grid
+ * resolution for FMM grains (Star, etc.) — BATES doesn't use it — and 750 was too slow for
+ * interactive use in JS (see fmmGrain.ts). Every other value affects the physics or alert
+ * thresholds directly and must not drift from the source; `burnoutWebThres` in particular being
+ * off by 10x here previously caused real (non-truncation) divergence from Python at the tail end
+ * of a burn — see defaultMotorConfig.reference.test.ts.
+ */
 export function defaultMotorConfig(): MotorConfigProperties {
   return {
-    maxPressure: 7e6,
-    maxMassFlux: 1406.96,
-    maxMachNumber: 1,
+    maxPressure: 10342500,
+    maxMassFlux: 1406.4697609001405,
+    maxMachNumber: 0.7,
     minPortThroat: 2,
     flowSeparationWarnPercent: 0.05,
-    burnoutWebThres: 0.00025,
+    burnoutWebThres: 2.5400050800101604e-5,
     burnoutThrustThres: 0.1,
     timestep: 0.03,
     ambPressure: 101325,

@@ -27,20 +27,20 @@ describe('BATES motor matches Python reference (tight tolerance)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('matches burn time, average force, ISP and propellant mass within 1%', () => {
-    expect(relClose(result.getBurnTime(), refSimple.burnTime, 0.01)).toBe(true);
-    expect(relClose(result.getAverageForce(), refSimple.averageForce, 0.01)).toBe(true);
-    expect(relClose(result.getISP(), refSimple.isp, 0.01)).toBe(true);
-    expect(relClose(result.getPropellantMass(), refSimple.propellantMass, 0.01)).toBe(true);
+  it('matches burn time, average force, ISP and propellant mass within 0.05%', () => {
+    expect(relClose(result.getBurnTime(), refSimple.burnTime, 0.0005)).toBe(true);
+    expect(relClose(result.getAverageForce(), refSimple.averageForce, 0.0005)).toBe(true);
+    expect(relClose(result.getISP(), refSimple.isp, 0.0005)).toBe(true);
+    expect(relClose(result.getPropellantMass(), refSimple.propellantMass, 0.0005)).toBe(true);
   });
 
-  it('matches peak pressure and impulse within 1%', () => {
-    expect(relClose(result.getMaxPressure(), refSimple.maxPressure, 0.01)).toBe(true);
-    expect(relClose(result.getImpulse(), refSimple.impulse, 0.01)).toBe(true);
+  it('matches peak pressure and impulse within 0.05%', () => {
+    expect(relClose(result.getMaxPressure(), refSimple.maxPressure, 0.0005)).toBe(true);
+    expect(relClose(result.getImpulse(), refSimple.impulse, 0.0005)).toBe(true);
   });
 
-  it('matches the initial Kn within 1%', () => {
-    expect(relClose(result.getInitialKN(), refSimple.initialKN, 0.01)).toBe(true);
+  it('matches the initial Kn within 0.05%', () => {
+    expect(relClose(result.getInitialKN(), refSimple.initialKN, 0.0005)).toBe(true);
   });
 });
 
