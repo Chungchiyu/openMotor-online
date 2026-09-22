@@ -3,16 +3,17 @@ import { buildGrain } from '../physics/grains';
 import type { PerforatedGrain } from '../physics/grains/base';
 import { presetPropellants } from '../physics/presetPropellants';
 import { computeGrainPreview } from '../physics/preview';
-import type {
-  BatesGrainProperties,
-  GrainConfig,
-  InhibitedEnds,
-  MoonBurnerProperties,
-  MotorConfigProperties,
-  NozzleConfig,
-  PropellantConfig,
-  PropellantTab,
-  StarGrainProperties,
+import {
+  defaultMotorConfig,
+  type BatesGrainProperties,
+  type GrainConfig,
+  type InhibitedEnds,
+  type MoonBurnerProperties,
+  type MotorConfigProperties,
+  type NozzleConfig,
+  type PropellantConfig,
+  type PropellantTab,
+  type StarGrainProperties,
 } from '../physics/types';
 import type { Selection } from './MotorBuilder';
 import { GrainPreviewPanel } from './GrainPreviewPanel';
@@ -343,6 +344,14 @@ export function PropertyEditor({
     return (
       <div className="property-editor">
         <h3>Config</h3>
+        <div className="propellant-preset-row">
+          <button
+            title="Reset all values to openMotor's built-in defaults"
+            onClick={() => setDraftConfig(defaultMotorConfig())}
+          >
+            Reset to Default
+          </button>
+        </div>
         <ConfigForm config={draftConfig} onChange={setDraftConfig} />
         <div className="apply-cancel-row">
           <button className="primary" onClick={() => onApplyConfig(draftConfig)}>
