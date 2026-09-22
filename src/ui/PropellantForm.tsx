@@ -1,6 +1,7 @@
 import { findPreset } from '../propellantLibrary';
 import type { PropellantConfig, PropellantTab } from '../physics/types';
 import { NumberField } from './fields';
+import { PropellantBurnRateGraph } from './PropellantBurnRateGraph';
 
 function emptyTab(): PropellantTab {
   return { minPressure: 0, maxPressure: 6895000, a: 1e-5, n: 0.3, k: 1.2, t: 1600, m: 25 };
@@ -19,8 +20,8 @@ function TabEditor({
 }) {
   return (
     <div className="propellant-tab-editor">
-      <NumberField label="Min Pressure" unit="Pa" value={tab.minPressure} onChange={(v) => onChange({ ...tab, minPressure: v })} />
-      <NumberField label="Max Pressure" unit="Pa" value={tab.maxPressure} onChange={(v) => onChange({ ...tab, maxPressure: v })} />
+      <NumberField label="Min Pressure" unitKind="Pa" value={tab.minPressure} onChange={(v) => onChange({ ...tab, minPressure: v })} />
+      <NumberField label="Max Pressure" unitKind="Pa" value={tab.maxPressure} onChange={(v) => onChange({ ...tab, maxPressure: v })} />
       <NumberField label="Burn Rate Coeff. (a)" unit="m/(s·Pa^n)" value={tab.a} onChange={(v) => onChange({ ...tab, a: v })} />
       <NumberField label="Burn Rate Exponent (n)" value={tab.n} onChange={(v) => onChange({ ...tab, n: v })} />
       <NumberField label="Specific Heat Ratio (k)" value={tab.k} onChange={(v) => onChange({ ...tab, k: v })} />
@@ -58,7 +59,10 @@ export function PropellantForm({ propellant, onChange }: { propellant: Propellan
         <span className="field-label">Name</span>
         <input type="text" value={propellant.name} onChange={(e) => onChange({ ...propellant, name: e.target.value })} />
       </label>
-      <NumberField label="Density" unit="kg/m³" value={propellant.density} onChange={(v) => onChange({ ...propellant, density: v })} />
+      <NumberField label="Density" unitKind="kg/m^3" value={propellant.density} onChange={(v) => onChange({ ...propellant, density: v })} />
+
+      <h4>Burn rate vs. pressure</h4>
+      <PropellantBurnRateGraph propellant={propellant} />
 
       <h4>Burn rate tabs</h4>
       {propellant.tabs.map((tab, i) => (

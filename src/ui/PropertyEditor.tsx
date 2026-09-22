@@ -14,6 +14,7 @@ import {
 } from '../physics/types';
 import type { Selection } from './MotorBuilder';
 import { GrainPreviewPanel } from './GrainPreviewPanel';
+import { NozzlePreview } from './NozzlePreview';
 import { NumberField, SelectField } from './fields';
 
 const inhibitedOptions: { value: InhibitedEnds; label: string }[] = [
@@ -26,11 +27,11 @@ const inhibitedOptions: { value: InhibitedEnds; label: string }[] = [
 function BatesForm({ properties, onChange }: { properties: BatesGrainProperties; onChange: (p: BatesGrainProperties) => void }) {
   return (
     <>
-      <NumberField label="Diameter" isLength value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
-      <NumberField label="Length" isLength value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
       <NumberField
         label="Core Diameter"
-        isLength
+        unitKind="m"
         value={properties.coreDiameter}
         onChange={(v) => onChange({ ...properties, coreDiameter: v })}
       />
@@ -47,8 +48,8 @@ function BatesForm({ properties, onChange }: { properties: BatesGrainProperties;
 function StarForm({ properties, onChange }: { properties: StarGrainProperties; onChange: (p: StarGrainProperties) => void }) {
   return (
     <>
-      <NumberField label="Diameter" isLength value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
-      <NumberField label="Length" isLength value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
       <NumberField
         label="Number of Points"
         value={properties.numPoints}
@@ -58,13 +59,13 @@ function StarForm({ properties, onChange }: { properties: StarGrainProperties; o
       />
       <NumberField
         label="Point Length"
-        isLength
+        unitKind="m"
         value={properties.pointLength}
         onChange={(v) => onChange({ ...properties, pointLength: v })}
       />
       <NumberField
         label="Point Base Width"
-        isLength
+        unitKind="m"
         value={properties.pointWidth}
         onChange={(v) => onChange({ ...properties, pointWidth: v })}
       />
@@ -81,17 +82,17 @@ function StarForm({ properties, onChange }: { properties: StarGrainProperties; o
 function MoonBurnerForm({ properties, onChange }: { properties: MoonBurnerProperties; onChange: (p: MoonBurnerProperties) => void }) {
   return (
     <>
-      <NumberField label="Diameter" isLength value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
-      <NumberField label="Length" isLength value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
       <NumberField
         label="Core Diameter"
-        isLength
+        unitKind="m"
         value={properties.coreDiameter}
         onChange={(v) => onChange({ ...properties, coreDiameter: v })}
       />
       <NumberField
         label="Core Offset"
-        isLength
+        unitKind="m"
         value={properties.coreOffset}
         onChange={(v) => onChange({ ...properties, coreOffset: v })}
       />
@@ -108,32 +109,37 @@ function MoonBurnerForm({ properties, onChange }: { properties: MoonBurnerProper
 function NozzleForm({ nozzle, onChange }: { nozzle: NozzleConfig; onChange: (n: NozzleConfig) => void }) {
   const expansion = nozzle.throat === 0 ? null : (nozzle.exit / nozzle.throat) ** 2;
   return (
-    <>
-      <NumberField label="Throat Diameter" isLength value={nozzle.throat} onChange={(v) => onChange({ ...nozzle, throat: v })} />
-      <NumberField label="Exit Diameter" isLength value={nozzle.exit} onChange={(v) => onChange({ ...nozzle, exit: v })} />
-      <NumberField label="Efficiency" value={nozzle.efficiency} onChange={(v) => onChange({ ...nozzle, efficiency: v })} />
-      <NumberField label="Divergence Half Angle" unit="deg" value={nozzle.divAngle} onChange={(v) => onChange({ ...nozzle, divAngle: v })} />
-      <NumberField label="Convergence Half Angle" unit="deg" value={nozzle.convAngle} onChange={(v) => onChange({ ...nozzle, convAngle: v })} />
-      <NumberField label="Throat Length" isLength value={nozzle.throatLength} onChange={(v) => onChange({ ...nozzle, throatLength: v })} />
-      <NumberField label="Slag Coefficient" unit="(m*Pa)/s" value={nozzle.slagCoeff} onChange={(v) => onChange({ ...nozzle, slagCoeff: v })} />
-      <NumberField
-        label="Erosion Coefficient"
-        unit="m/(s*Pa)"
-        value={nozzle.erosionCoeff}
-        onChange={(v) => onChange({ ...nozzle, erosionCoeff: v })}
-      />
-      <div className="field-note">Expansion ratio: {expansion === null ? '-' : expansion.toFixed(3)}</div>
-    </>
+    <div className="property-editor-columns">
+      <div className="property-editor-form">
+        <NumberField label="Throat Diameter" unitKind="m" value={nozzle.throat} onChange={(v) => onChange({ ...nozzle, throat: v })} />
+        <NumberField label="Exit Diameter" unitKind="m" value={nozzle.exit} onChange={(v) => onChange({ ...nozzle, exit: v })} />
+        <NumberField label="Efficiency" value={nozzle.efficiency} onChange={(v) => onChange({ ...nozzle, efficiency: v })} />
+        <NumberField label="Divergence Half Angle" unit="deg" value={nozzle.divAngle} onChange={(v) => onChange({ ...nozzle, divAngle: v })} />
+        <NumberField label="Convergence Half Angle" unit="deg" value={nozzle.convAngle} onChange={(v) => onChange({ ...nozzle, convAngle: v })} />
+        <NumberField label="Throat Length" unitKind="m" value={nozzle.throatLength} onChange={(v) => onChange({ ...nozzle, throatLength: v })} />
+        <NumberField label="Slag Coefficient" unitKind="(m*Pa)/s" value={nozzle.slagCoeff} onChange={(v) => onChange({ ...nozzle, slagCoeff: v })} />
+        <NumberField
+          label="Erosion Coefficient"
+          unitKind="m/(s*Pa)"
+          value={nozzle.erosionCoeff}
+          onChange={(v) => onChange({ ...nozzle, erosionCoeff: v })}
+        />
+        <div className="field-note">Expansion ratio: {expansion === null ? '-' : expansion.toFixed(3)}</div>
+      </div>
+      <div className="property-editor-preview">
+        <NozzlePreview nozzle={nozzle} />
+      </div>
+    </div>
   );
 }
 
 function ConfigForm({ config, onChange }: { config: MotorConfigProperties; onChange: (c: MotorConfigProperties) => void }) {
   return (
     <>
-      <NumberField label="Maximum Pressure" unit="Pa" value={config.maxPressure} onChange={(v) => onChange({ ...config, maxPressure: v })} />
+      <NumberField label="Maximum Pressure" unitKind="Pa" value={config.maxPressure} onChange={(v) => onChange({ ...config, maxPressure: v })} />
       <NumberField
         label="Maximum Mass Flux"
-        unit="kg/(m²·s)"
+        unitKind="kg/(m^2*s)"
         value={config.maxMassFlux}
         onChange={(v) => onChange({ ...config, maxMassFlux: v })}
       />
@@ -154,7 +160,7 @@ function ConfigForm({ config, onChange }: { config: MotorConfigProperties; onCha
       />
       <NumberField
         label="Web Burnout Threshold"
-        isLength
+        unitKind="m"
         value={config.burnoutWebThres}
         onChange={(v) => onChange({ ...config, burnoutWebThres: v })}
       />
@@ -165,7 +171,7 @@ function ConfigForm({ config, onChange }: { config: MotorConfigProperties; onCha
         onChange={(v) => onChange({ ...config, burnoutThrustThres: v })}
       />
       <NumberField label="Simulation Timestep" unit="s" value={config.timestep} onChange={(v) => onChange({ ...config, timestep: v })} />
-      <NumberField label="Ambient Pressure" unit="Pa" value={config.ambPressure} onChange={(v) => onChange({ ...config, ambPressure: v })} />
+      <NumberField label="Ambient Pressure" unitKind="Pa" value={config.ambPressure} onChange={(v) => onChange({ ...config, ambPressure: v })} />
       <NumberField
         label="Grain Map Dimension"
         value={config.mapDim}

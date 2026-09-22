@@ -1,10 +1,10 @@
 /**
  * Fast Marching Method distance transform.
  *
- * This is a from-scratch, standard first-order implementation of the eikonal-equation solver
- * (Sethian's Fast Marching Method) — a well-known general algorithm, not something specific to
- * openMotor. It stands in for `skfmm.distance()`, which the Python original uses to compute how
- * far every point in a grain's cross-section is from the initial core boundary.
+ * This is a from-scratch implementation of the eikonal-equation solver (Sethian's Fast Marching
+ * Method) — a well-known general algorithm, not something specific to openMotor. It stands in for
+ * `skfmm.distance()`, which the Python original uses to compute how far every point in a grain's
+ * cross-section is from the initial core boundary.
  *
  * Given a 2D grid where cells with value 0 are the "seed" (the core boundary — distance zero) and
  * cells with value 1 are unburned propellant, this returns the distance from every propellant cell
@@ -13,10 +13,21 @@
  * area, so leaving it out of the domain doesn't change the result inside the circle, it just skips
  * wasted work).
  *
- * Numerically this uses a first-order upwind update, while `skfmm` uses second order where
- * possible. Expect distances to differ from the Python reference by a small amount (a fraction of
- * a grid cell) — for the FMM-based grains, tests allow a wider tolerance than for the analytic
- * (BATES) grains for this reason. See src/physics/__tests__ for the specifics.
+ * Like `skfmm`, this prefers a second-order one-sided update along each axis (falling back to
+ * first-order, then to dropping an axis entirely, wherever a consistent second neighbor isn't
+ * available or the resulting quadratic has no valid root) — see `probeAxis`/`solve` below. An
+ * earlier, purely first-order version of this file had a small but systematically growing distance
+ * bias relative to the Python reference (traced by diffing raw regression-map output against
+ * `skfmm.distance()` on an identical core map): at a coarse 101x101 test grid it ran from 0% right
+ * at the seed up to several percent farther out. This second-order scheme cuts that bias by roughly
+ * half at the same resolution, and — because truncation error for a scheme like this shrinks with
+ * grid spacing — down to a small fraction of a percent at the ~750x750 resolution the app actually
+ * simulates at. Getting the star/moon-burner grains' end-to-end burn time/ISP/average force under
+ * ~0.03% of the Python reference (see fmmGrain.ts's reference tests) also needed two more fixes on
+ * top of this one: the burning-perimeter/face-area lookup tables built from this distance field
+ * needed to sample at Python's per-pixel resolution instead of a fixed low resolution, and the
+ * perimeter calculation needed to reproduce a Python quirk that excludes contour cells within ~3
+ * pixels of the outer wall (see fmmGrain.ts and contours.ts).
  */
 
 class MinHeap {
@@ -107,38 +118,105 @@ export function fastMarchDistance(coreMap: Float64Array, inDomain: Uint8Array, d
     [r, c + 1],
   ];
 
+  // One axis's contribution to the local eikonal update: the nearest KNOWN neighbor along the axis
+  // (whichever of the two opposite directions is smaller), plus optionally the next KNOWN neighbor
+  // further out in that same direction (u2), which — when it's <= u1, preserving monotonicity along
+  // the axis — lets the update use a second-order one-sided difference instead of first-order. This
+  // mirrors skfmm's scheme (it defaults to second order, falling back to first order wherever a
+  // consistent second neighbor isn't available), which is why the previous purely first-order port
+  // had a growing distance bias relative to the Python reference (see fmmGrain.ts/contours.ts
+  // callers and the reference tests for the effect this had on downstream burn geometry).
+  const probeAxis = (r: number, c: number, dr: number, dc: number): { u1: number; u2: number | null } | null => {
+    const negR = r - dr;
+    const negC = c - dc;
+    const posR = r + dr;
+    const posC = c + dc;
+    const negKnown = validCell(negR, negC) && status[at(negR, negC)] === KNOWN;
+    const posKnown = validCell(posR, posC) && status[at(posR, posC)] === KNOWN;
+
+    let side = 0;
+    let u1 = Infinity;
+    if (negKnown) {
+      u1 = distance[at(negR, negC)];
+      side = -1;
+    }
+    if (posKnown) {
+      const v = distance[at(posR, posC)];
+      if (v < u1) {
+        u1 = v;
+        side = 1;
+      }
+    }
+    if (side === 0) return null;
+
+    const farR = r + 2 * side * dr;
+    const farC = c + 2 * side * dc;
+    let u2: number | null = null;
+    if (validCell(farR, farC) && status[at(farR, farC)] === KNOWN) {
+      const v2 = distance[at(farR, farC)];
+      if (v2 <= u1) u2 = v2;
+    }
+    return { u1, u2 };
+  };
+
+  // Solves sum_i (D_i)^2 = 1/h^2 for the eikonal update, where each axis's D_i is either the
+  // first-order one-sided difference (T - u1)/h or, at order 2, (3T - 4*u1 + u2)/(2h). Returns null
+  // if the quadratic has no real root, or if the root would violate causality (T must be >= every
+  // u1 it was built from) — the caller responds by degrading order/dropping axes and retrying, same
+  // as skfmm does.
+  const solve = (axes: { u1: number; u2: number | null }[], orders: number[]): number | null => {
+    let A = 0;
+    let B = 0;
+    let C = 0;
+    for (let k = 0; k < axes.length; k++) {
+      const { u1, u2 } = axes[k];
+      if (orders[k] === 2 && u2 !== null) {
+        const k4 = 4 * u1 - u2;
+        A += 9 / (4 * h * h);
+        B += (-3 * k4) / (2 * h * h);
+        C += (k4 * k4) / (4 * h * h);
+      } else {
+        A += 1 / (h * h);
+        B += (-2 * u1) / (h * h);
+        C += (u1 * u1) / (h * h);
+      }
+    }
+    const disc = B * B - 4 * A * (C - 1);
+    if (disc < 0) return null;
+    const T = (-B + Math.sqrt(disc)) / (2 * A);
+    for (const { u1 } of axes) {
+      if (T < u1 - 1e-12) return null;
+    }
+    return T;
+  };
+
   const tryUpdate = (r: number, c: number): void => {
     const i = at(r, c);
     if (status[i] === KNOWN) return;
 
-    let hMin = Infinity;
-    for (const [nr, nc] of [
-      [r, c - 1],
-      [r, c + 1],
-    ] as [number, number][]) {
-      if (validCell(nr, nc) && status[at(nr, nc)] === KNOWN) hMin = Math.min(hMin, distance[at(nr, nc)]);
-    }
-    let vMin = Infinity;
-    for (const [nr, nc] of [
-      [r - 1, c],
-      [r + 1, c],
-    ] as [number, number][]) {
-      if (validCell(nr, nc) && status[at(nr, nc)] === KNOWN) vMin = Math.min(vMin, distance[at(nr, nc)]);
-    }
+    const axes = [probeAxis(r, c, 0, 1), probeAxis(r, c, 1, 0)].filter(
+      (a): a is { u1: number; u2: number | null } => a !== null,
+    );
+    if (axes.length === 0) return;
 
-    let newDist: number;
-    if (hMin < Infinity && vMin < Infinity) {
-      if (Math.abs(hMin - vMin) >= h) {
-        newDist = Math.min(hMin, vMin) + h;
+    const orders = axes.map((a) => (a.u2 !== null ? 2 : 1));
+    let newDist = solve(axes, orders);
+    while (newDist === null) {
+      const idx2 = orders.findIndex((o) => o === 2);
+      if (idx2 !== -1) {
+        orders[idx2] = 1;
+      } else if (axes.length > 1) {
+        let worst = 0;
+        for (let k = 1; k < axes.length; k++) {
+          if (axes[k].u1 > axes[worst].u1) worst = k;
+        }
+        axes.splice(worst, 1);
+        orders.splice(worst, 1);
       } else {
-        newDist = (hMin + vMin + Math.sqrt(2 * h * h - (hMin - vMin) ** 2)) / 2;
+        newDist = axes[0].u1 + h;
+        break;
       }
-    } else if (hMin < Infinity) {
-      newDist = hMin + h;
-    } else if (vMin < Infinity) {
-      newDist = vMin + h;
-    } else {
-      return;
+      newDist = solve(axes, orders);
     }
 
     if (newDist < distance[i]) {

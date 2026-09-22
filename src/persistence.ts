@@ -33,15 +33,21 @@ export function loadAutosave(): MotorDesign | null {
   }
 }
 
-export function downloadDesign(design: MotorDesign, filename = 'motor.json'): void {
-  const payload: SaveFile = { formatVersion: SAVE_FORMAT_VERSION, design };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+/** Triggers a browser download of `content` as `filename` — the shared mechanism behind every
+ * export (design JSON, .eng, .csv, .bsx, chart PNG). */
+export function downloadTextFile(content: string, filename: string, mimeType = 'text/plain'): void {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadDesign(design: MotorDesign, filename = 'motor.json'): void {
+  const payload: SaveFile = { formatVersion: SAVE_FORMAT_VERSION, design };
+  downloadTextFile(JSON.stringify(payload, null, 2), filename, 'application/json');
 }
 
 export function parseDesignFile(text: string): MotorDesign {

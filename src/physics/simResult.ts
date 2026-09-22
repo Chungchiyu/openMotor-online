@@ -9,9 +9,52 @@ import type { Grain } from './grains/base';
 import * as nozzleMod from './nozzle';
 import { getCombustionProperties } from './propellant';
 import { SimAlertLevel, type MotorDesign, type SimAlert } from './types';
+import { convert as convertUnit } from './units';
 
 export type SingleValueChannel = 'time' | 'kn' | 'pressure' | 'force' | 'volumeLoading' | 'exitPressure' | 'dThroat';
 export type MultiValueChannel = 'mass' | 'massFlow' | 'massFlux' | 'regression' | 'web' | 'machNumber';
+
+/** Display name + canonical (SI) unit for each channel — matches the `LogChannel(name, type, unit)`
+ * definitions in motorlib/simResult.py's `SimulationResult.__init__` exactly. The single source of
+ * truth for channel metadata; the chart and CSV export both read from here instead of duplicating it. */
+export const singleValueChannelMeta: Record<SingleValueChannel, { label: string; unit: string }> = {
+  time: { label: 'Time', unit: 's' },
+  kn: { label: 'Kn', unit: '' },
+  pressure: { label: 'Chamber Pressure', unit: 'Pa' },
+  force: { label: 'Thrust', unit: 'N' },
+  volumeLoading: { label: 'Volume Loading', unit: '%' },
+  exitPressure: { label: 'Nozzle Exit Pressure', unit: 'Pa' },
+  dThroat: { label: 'Change in Throat Diameter', unit: 'm' },
+};
+
+export const multiValueChannelMeta: Record<MultiValueChannel, { label: string; unit: string }> = {
+  mass: { label: 'Propellant Mass', unit: 'kg' },
+  massFlow: { label: 'Mass Flow', unit: 'kg/s' },
+  massFlux: { label: 'Mass Flux', unit: 'kg/(m^2*s)' },
+  regression: { label: 'Regression Depth', unit: 'm' },
+  web: { label: 'Web', unit: 'm' },
+  machNumber: { label: 'Core Mach Number', unit: '' },
+};
+
+// Matches the exact insertion order of the `channels` dict in motorlib/simResult.py's
+// `SimulationResult.__init__` — Python 3.7+ dicts preserve insertion order, and this is what
+// `getCSV`'s column order derives from, so it's reproduced here rather than just concatenating the
+// single-value and multi-value channels in two separate blocks.
+const csvChannelOrder: ({ kind: 'single'; key: SingleValueChannel } | { kind: 'multi'; key: MultiValueChannel })[] = [
+  { kind: 'single', key: 'time' },
+  { kind: 'single', key: 'kn' },
+  { kind: 'single', key: 'pressure' },
+  { kind: 'single', key: 'force' },
+  { kind: 'multi', key: 'mass' },
+  { kind: 'single', key: 'volumeLoading' },
+  { kind: 'multi', key: 'massFlow' },
+  { kind: 'multi', key: 'massFlux' },
+  { kind: 'multi', key: 'regression' },
+  { kind: 'multi', key: 'web' },
+  { kind: 'single', key: 'exitPressure' },
+  { kind: 'single', key: 'dThroat' },
+  { kind: 'multi', key: 'machNumber' },
+];
 
 export class SimulationResult {
   design: MotorDesign;
@@ -183,6 +226,66 @@ export class SimulationResult {
     if (this.channels.time.length === 1) return true;
     return this.last(this.channels.force) > thrustThres * 0.01 * this.maxForceSoFar;
   }
+
+  /**
+   * Returns a CSV string of every channel's data, ported from motorlib/simResult.py's `getCSV`.
+   * `unitFor` resolves a canonical unit to the user's preferred display unit (pass `(u) => u` to
+   * keep everything in SI); `exclude`/`excludeGrains` name channels/grain indices to leave out.
+   */
+  getCSV(unitFor: (canonical: string) => string, exclude: string[] = [], excludeGrains: number[] = []): string {
+    const outUnits: Record<string, string> = {};
+    let header = '';
+
+    for (const entry of csvChannelOrder) {
+      if (exclude.includes(entry.key)) continue;
+      if (entry.kind === 'single') {
+        const meta = singleValueChannelMeta[entry.key];
+        outUnits[entry.key] = unitFor(meta.unit);
+        header += meta.label;
+        if (outUnits[entry.key] !== '') header += `(${outUnits[entry.key]})`;
+        header += ',';
+      } else {
+        const meta = multiValueChannelMeta[entry.key];
+        outUnits[entry.key] = unitFor(meta.unit);
+        const numGrains = this.multiChannels[entry.key][this.multiChannels[entry.key].length - 1]?.length ?? 0;
+        for (let g = 1; g <= numGrains; g++) {
+          if (excludeGrains.includes(g - 1)) continue;
+          header += `${meta.label}(G${g}`;
+          if (outUnits[entry.key] !== '') header += `;${outUnits[entry.key]}`;
+          header += '),';
+        }
+      }
+    }
+    header = header.slice(0, -1) + '\n';
+
+    const places = 5;
+    let rows = '';
+    for (let i = 0; i < this.channels.time.length; i++) {
+      rows += `${round(this.channels.time[i], places)},`;
+      for (const entry of csvChannelOrder) {
+        if (exclude.includes(entry.key) || entry.key === 'time') continue;
+        if (entry.kind === 'single') {
+          const converted = convertUnit(this.channels[entry.key][i], singleValueChannelMeta[entry.key].unit, outUnits[entry.key]);
+          rows += `${round(converted, places)},`;
+        } else {
+          const frame = this.multiChannels[entry.key][i] ?? [];
+          frame.forEach((v, g) => {
+            if (excludeGrains.includes(g)) return;
+            const converted = convertUnit(v, multiValueChannelMeta[entry.key].unit, outUnits[entry.key]);
+            rows += `${round(converted, places)},`;
+          });
+        }
+      }
+      rows = rows.slice(0, -1) + '\n';
+    }
+
+    return header + rows;
+  }
+}
+
+function round(value: number, places: number): number {
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
 }
 
 export function circleAreaOfThroat(throat: number): number {

@@ -10,12 +10,15 @@ function roundForDisplay(value: number): number {
 
 interface NumberFieldProps {
   label: string;
-  /** The value in canonical (SI) units — always meters for a length field. */
+  /** The value in canonical (SI) units. */
   value: number;
-  /** Marks this as a length field, so it's displayed/edited in the shared length unit preference
-   * (see UnitsContext) instead of raw meters. Omit for non-length quantities (angles, ratios…). */
-  isLength?: boolean;
-  /** A fixed unit label for non-length fields (e.g. 'deg'). Ignored when `isLength` is set. */
+  /** The canonical (SI) unit this quantity is stored in, e.g. 'm', 'Pa', 'kg/m^3' — matches
+   * motorlib/units.py's unitLabels keys. The field is displayed/edited in whichever unit the user
+   * has picked for that quantity (see UnitsContext/quantityTypes), converting on the way in and
+   * out. Omit for quantities with no conversion table (angles, dimensionless ratios, percentages)
+   * and pass a fixed `unit` label instead. */
+  unitKind?: string;
+  /** A fixed unit label shown for quantities with no conversion table. Ignored when `unitKind` is set. */
   unit?: string;
   step?: number;
   min?: number;
@@ -23,15 +26,15 @@ interface NumberFieldProps {
   onChange: (value: number) => void;
 }
 
-export function NumberField({ label, value, isLength, unit, step, min, max, onChange }: NumberFieldProps) {
-  const { lengthUnit } = useUnits();
-  const displayUnit = isLength ? lengthUnit : unit;
-  const displayValue = isLength ? convert(value, 'm', lengthUnit) : value;
+export function NumberField({ label, value, unitKind, unit, step, min, max, onChange }: NumberFieldProps) {
+  const { unitFor } = useUnits();
+  const displayUnit = unitKind ? unitFor(unitKind) : unit;
+  const displayValue = unitKind ? convert(value, unitKind, displayUnit!) : value;
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const typed = Number.parseFloat(e.target.value);
     if (Number.isNaN(typed)) return;
-    const canonical = isLength ? convert(typed, lengthUnit, 'm') : typed;
+    const canonical = unitKind ? convert(typed, displayUnit!, unitKind) : typed;
     onChange(canonical);
   };
 

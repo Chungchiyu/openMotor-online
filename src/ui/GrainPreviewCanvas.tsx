@@ -72,9 +72,14 @@ export function GrainPreviewCanvas({ preview, highlightFraction, size = 220, sho
     ctx.putImageData(image, 0, 0);
 
     if (showContours) {
-      for (const contour of preview.contours) {
-        drawSegments(ctx, contour, dim, size, 'rgba(120, 72, 24, 0.55)', 1);
-      }
+      // A rainbow sweep across the contour set (one hue per regression depth) rather than a single
+      // flat color — matches the original desktop app's multi-colored regression preview, and
+      // incidentally makes it easy to see at a glance which contours are earliest/latest in the burn.
+      const n = preview.contours.length;
+      preview.contours.forEach((contour, i) => {
+        const hue = n <= 1 ? 0 : (i / (n - 1)) * 300; // red -> violet, skipping the red/red wrap
+        drawSegments(ctx, contour, dim, size, `hsla(${hue}, 85%, 60%, 0.8)`, 1.25);
+      });
     }
 
     if (highlightFraction !== undefined) {

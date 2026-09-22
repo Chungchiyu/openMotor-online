@@ -109,20 +109,48 @@ export abstract class FmmGrain extends PerforatedGrain {
     }
     this.wallWeb = this.unNormalize(maxDist);
 
-    const numLevels = Math.min(250, this.mapDim);
+    // Sample at the same per-pixel granularity the Python original uses (dx = 1/mapDim), rather
+    // than a fixed 250-point table — the burning perimeter and face area both change increasingly
+    // fast near burnout (the last few percent of regression can span a third of the table's
+    // levels), so a coarse fixed table under-resolves exactly the region that matters most for
+    // burnout timing. Matching Python's resolution here is what closed most of the remaining gap
+    // in end-to-end burn time/ISP after fixing the FMM solver's order (see fmm.ts).
+    const dx = 1 / this.mapDim;
+    const numLevels = maxDist === 0 ? 1 : Math.floor(maxDist / dx) + 2;
     const levels = new Float64Array(numLevels);
+    for (let i = 0; i < numLevels; i++) levels[i] = i * dx;
+
+    // Face area only needs a count of cells beyond each level, which a single histogram pass over
+    // the map turns into O(mapDim^2 + numLevels) instead of O(numLevels * mapDim^2) — the naive
+    // "recount from scratch per level" cost that made a finer table for perimeter alone affordable
+    // but not for both.
     const faceAreaValues = new Float64Array(numLevels);
+    {
+      const bins = new Float64Array(numLevels + 1);
+      for (let j = 0; j < regressionMap.length; j++) {
+        if (this.inDomain[j] !== 1) continue;
+        const v = regressionMap[j];
+        // Seed cells (the core itself, v === 0 exactly) never satisfy "v > level" for any
+        // level >= 0, so they must be excluded rather than falling into bin 0 alongside the
+        // near-zero (but genuinely positive) propellant cells right at the burn front.
+        if (!Number.isFinite(v) || v <= 0) continue;
+        const bin = Math.min(numLevels, Math.max(0, Math.floor(v / dx)));
+        bins[bin]++;
+      }
+      // suffix[i] = number of cells with regressionMap > levels[i]. Bin i holds values in
+      // [i*dx, (i+1)*dx), all of which are > levels[i] = i*dx except the single exact boundary
+      // point, so bin i itself belongs in the count for level i (not just the bins above it).
+      let suffix = 0;
+      for (let i = numLevels; i >= 0; i--) suffix += bins[i];
+      for (let i = 0; i < numLevels; i++) {
+        faceAreaValues[i] = this.mapToArea(suffix);
+        suffix -= bins[i];
+      }
+    }
+
     const perimeterValues = new Float64Array(numLevels);
     for (let i = 0; i < numLevels; i++) {
-      const level = maxDist === 0 ? 0 : (maxDist * i) / (numLevels - 1);
-      levels[i] = level;
-
-      let count = 0;
-      for (let j = 0; j < regressionMap.length; j++) {
-        if (this.inDomain[j] === 1 && regressionMap[j] > level) count++;
-      }
-      faceAreaValues[i] = this.mapToArea(count);
-      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, level, this.inDomain));
+      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, levels[i], this.inDomain));
     }
     this.faceAreaTable = { levels, values: faceAreaValues };
     this.perimeterTable = { levels, values: perimeterValues };

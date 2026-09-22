@@ -6,7 +6,10 @@
  *
  * BATES is fully analytic, so it's held to a tight tolerance. The star grain depends on our
  * hand-rolled fast marching method + marching squares standing in for skfmm + a Cython contour
- * routine, so it's held to a looser tolerance — see fmm.ts and contours.ts for why.
+ * routine (see fmm.ts and contours.ts) — once that solver matched skfmm's order of accuracy and
+ * the burning-perimeter/face-area lookup tables matched its sampling resolution, the star grain's
+ * measured error against this fixture dropped to comfortably under 0.1%, so it's held to a tight
+ * tolerance too now (just not quite as tight as the fully analytic BATES case).
  */
 import { describe, expect, it } from 'vitest';
 import type { MotorDesign } from '../types';
@@ -44,7 +47,7 @@ describe('BATES motor matches Python reference (tight tolerance)', () => {
   });
 });
 
-describe('Star (FMM) motor matches Python reference (loose tolerance)', () => {
+describe('Star (FMM) motor matches Python reference (tight tolerance)', () => {
   const design = refStar.motorDict as unknown as MotorDesign;
   const motor = new Motor(design);
   const result = motor.runSimulation();
@@ -53,10 +56,10 @@ describe('Star (FMM) motor matches Python reference (loose tolerance)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('matches burn time, average force, ISP and propellant mass within 15%', () => {
-    expect(relClose(result.getBurnTime(), refStar.burnTime, 0.15)).toBe(true);
-    expect(relClose(result.getAverageForce(), refStar.averageForce, 0.15)).toBe(true);
-    expect(relClose(result.getISP(), refStar.isp, 0.15)).toBe(true);
-    expect(relClose(result.getPropellantMass(), refStar.propellantMass, 0.02)).toBe(true);
+  it('matches burn time, average force, ISP and propellant mass within 0.5%', () => {
+    expect(relClose(result.getBurnTime(), refStar.burnTime, 0.005)).toBe(true);
+    expect(relClose(result.getAverageForce(), refStar.averageForce, 0.005)).toBe(true);
+    expect(relClose(result.getISP(), refStar.isp, 0.005)).toBe(true);
+    expect(relClose(result.getPropellantMass(), refStar.propellantMass, 0.005)).toBe(true);
   });
 });

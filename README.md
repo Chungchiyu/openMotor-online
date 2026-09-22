@@ -1,32 +1,51 @@
 # openMotor Online
 
-A client-side web port (MVP) of [openMotor](https://github.com/reilleya/openMotor), the open-source
-solid rocket motor internal ballistics simulator. Everything runs in the browser — there's no
-backend; the physics engine is a from-scratch TypeScript port of openMotor's Python `motorlib`.
+A client-side web port of [openMotor](https://github.com/reilleya/openMotor), the open-source solid
+rocket motor internal ballistics simulator. Everything runs in the browser — there's no backend;
+the physics engine is a from-scratch TypeScript port of openMotor's Python `motorlib`.
 
 ## Status
 
 - **Grain shapes:** BATES (analytic), Star Grain and Moon Burner (both via a hand-rolled fast
   marching method + marching squares, standing in for `scikit-fmm` and the project's Cython
-  contour routine).
-- **Propellant:** all 20 of openMotor's built-in presets (mechanically generated from its
-  `uilib/defaults.py`, not hand-transcribed — see presetPropellants.ts), each editable in place
-  (including multi-tab burn rate tables) with a "Reset to Default" button. Not the original's full
-  add/delete propellant database editor.
-- **Persistence:** browser `localStorage` autosave, plus manual JSON export/import. No `.ric`/YAML
-  file compatibility, DXF import, BurnSim import/export, ENG export, or undo/redo yet.
-- **UI:** a unified grain/propellant/nozzle/config list with Apply/Cancel staging, a tabbed results
-  panel (Graph/Grains/Alerts) with full axis and per-grain channel selection, and a 4-tab grain
-  preview (Face/Regression/Area Graph/Alerts) — all modeled on the original desktop app's actual
-  layout, not guessed at.
+  contour routine). The other 8 shapes (Finocyl, Rod & Tube, Conical, End Burner, C/D/X-core,
+  Custom/DXF) aren't ported yet.
+- **Propellant:** a persistent library (localStorage, seeded from all 20 of openMotor's built-in
+  presets, mechanically generated from its `uilib/defaults.py`) managed through its own Propellant
+  Editor dialog — add/delete/edit entries, multi-tab burn rate tables, Reset to Default, and a
+  burn-rate-vs-pressure preview graph — matching the original's separate propellant database rather
+  than editing a propellant inline on the motor.
+- **Tools menu:** all 7 tools from the original (Set: Motor Diameter/Initial Kn/Max Kn/Max Pressure,
+  Optimize: Nozzle Expansion, Design: Neutral BATES Geometry, Analyze: Nozzle Erosion/Slag
+  Coefficient), each a faithful port of its Python source, reference-tested against it.
+- **Units:** a Preferences dialog with a chosen display unit per physical quantity (length,
+  pressure, mass, etc.), not just one global length unit.
+- **Undo/redo**, a unified grain/nozzle/config list with Apply/Cancel staging (double-click or Edit
+  to open a grain, matching the original's separate Edit button), a tabbed results panel
+  (Graph/Grains/Alerts, with full axis/channel selection and a per-grain results table), a 4-tab
+  grain preview (Face/Regression/Area Graph/Alerts) with a rainbow-gradient regression contour
+  overlay, and a nozzle profile preview — all modeled on the original desktop app's actual layout.
+- **Import/export:** JSON (this app's own save format, with autosave + a "recent files" list), CSV
+  and RASP `.eng` export of simulation results, BurnSim 3.0 (`.bsx`) import/export (BATES and Moon
+  Burner only — Star Grain has no BurnSim equivalent in the original either), and PNG export of the
+  results graph. No `.ric`/YAML file compatibility or DXF import yet.
+- **Simulation UX:** a real progress bar with a working Cancel button (the simulation runs in
+  yielding chunks, not one blocking call), and an alerts dialog that pops up automatically when a
+  run produces warnings.
 
 See `src/physics/` for the engine and `src/ui/` for the interface. The physics port is
 regression-tested against golden values produced by running the actual Python `motorlib` — both on
 openMotor's own bundled test fixtures and on an exhaustive sweep (every channel, every timestep,
 every one of the 20 built-in propellants) confirming agreement to within float64 truncation error
-(~1e-12 relative) for the analytic grains. See `src/physics/__tests__/` for the specifics, in
-particular `allPropellants.reference.test.ts` and `motor.reference.test.ts` for how tight a
-tolerance each grain type is held to and why.
+for the analytic grains, and to a similarly tight tolerance for the FMM-based ones now that the
+fast-marching solver matches `skfmm`'s order of accuracy. See `src/physics/__tests__/` for the
+specifics.
+
+**Known perf tradeoff:** the FMM solver's accuracy improvement computes its burning-perimeter
+lookup table at a much finer resolution, which is significantly slower at high `mapDim` — a Star
+Grain motor at `mapDim: 750` (as used by some of the bundled reference fixtures) can take several
+seconds to simulate. The app's own default (`mapDim: 400`) stays fast for interactive use; this
+only bites if a design's Config is turned up well past that.
 
 ## Development
 

@@ -10,31 +10,22 @@ import {
 } from 'chart.js';
 import { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
-import type { MultiValueChannel, SimulationResult, SingleValueChannel } from '../physics/simResult';
+import {
+  multiValueChannelMeta,
+  singleValueChannelMeta,
+  type MultiValueChannel,
+  type SimulationResult,
+  type SingleValueChannel,
+} from '../physics/simResult';
 
 ChartJS.register(LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export type ChannelKey = SingleValueChannel | MultiValueChannel;
 export type XChannelKey = 'time' | 'regression' | 'web';
 
-export const singleValueChannelMeta: Record<SingleValueChannel, { label: string; unit: string }> = {
-  time: { label: 'Time', unit: 's' },
-  kn: { label: 'Kn', unit: '' },
-  pressure: { label: 'Chamber Pressure', unit: 'Pa' },
-  force: { label: 'Thrust', unit: 'N' },
-  volumeLoading: { label: 'Volume Loading', unit: '%' },
-  exitPressure: { label: 'Nozzle Exit Pressure', unit: 'Pa' },
-  dThroat: { label: 'Change in Throat Diameter', unit: 'm' },
-};
-
-export const multiValueChannelMeta: Record<MultiValueChannel, { label: string; unit: string }> = {
-  mass: { label: 'Propellant Mass', unit: 'kg' },
-  massFlow: { label: 'Mass Flow', unit: 'kg/s' },
-  massFlux: { label: 'Mass Flux', unit: 'kg/(m²·s)' },
-  regression: { label: 'Regression Depth', unit: 'm' },
-  web: { label: 'Web', unit: 'm' },
-  machNumber: { label: 'Core Mach Number', unit: '' },
-};
+// Re-exported so existing importers (ResultsPanel) don't need to know this moved to simResult.ts,
+// which is the single source of truth for channel metadata (shared with getCSV).
+export { multiValueChannelMeta, singleValueChannelMeta };
 
 const isMultiValue = (ch: ChannelKey): ch is MultiValueChannel => ch in multiValueChannelMeta;
 

@@ -10,7 +10,7 @@ import { newtonRaphson } from './numerics';
 import * as nozzleMod from './nozzle';
 import * as propellantMod from './propellant';
 import { SimulationResult } from './simResult';
-import { SimAlertLevel, SimAlertType, type MotorDesign, type SimAlert } from './types';
+import { SimAlertLevel, SimAlertType, type MotorDesign, type PropellantConfig, type SimAlert } from './types';
 
 export class Motor {
   design: MotorDesign;
@@ -87,15 +87,14 @@ export class Motor {
     return Math.max(M, 0);
   }
 
-  /**
-   * Runs the timestepped simulation. `onProgress`, if given, is called with a 0-1 completion
-   * fraction after each step; returning `true` cancels the simulation early (matching the Python
-   * callback's cancel-on-true convention).
-   */
-  runSimulation(onProgress?: (progress: number) => boolean): SimulationResult {
-    const { burnoutWebThres, burnoutThrustThres } = this.design.config;
-    const dTime = this.design.config.timestep;
-
+  /** Validates the design and, if it's runnable, does the one-time setup (coremaps, initial
+   * channel values, port/throat check) a simulation needs before its timestep loop can start.
+   * Shared by `runSimulation` and `runSimulationChunked` so there's exactly one place that logic
+   * lives — returns `{ ready: false }` (with `simRes` already carrying the validation alerts) if
+   * the design has errors, matching `runSimulation`'s original early-return. */
+  private prepareSimulation():
+    | { ready: false; simRes: SimulationResult }
+    | { ready: true; simRes: SimulationResult; propellant: PropellantConfig; density: number; motorVolume: number; perGrainReg: number[] } {
     const simRes = new SimulationResult(this.design, this.grains);
 
     if (this.grains.length === 0) {
@@ -114,7 +113,7 @@ export class Motor {
       propellantMod.getErrors(this.design.propellant).forEach((alert) => simRes.addAlert(alert));
     }
 
-    if (simRes.getAlertsByLevel(SimAlertLevel.ERROR).length > 0) return simRes;
+    if (simRes.getAlertsByLevel(SimAlertLevel.ERROR).length > 0) return { ready: false, simRes };
 
     const propellant = this.design.propellant!;
     const density = propellant.density;
@@ -122,7 +121,7 @@ export class Motor {
 
     this.grains.forEach((grain) => grain.simulationSetup(this.design.config));
 
-    let perGrainReg = this.grains.map(() => 0);
+    const perGrainReg = this.grains.map(() => 0);
 
     simRes.channels.time.push(0);
     simRes.channels.kn.push(this.calcKN(perGrainReg, 0));
@@ -153,76 +152,82 @@ export class Motor {
       }
     }
 
-    let iterationGuard = 0;
-    const maxIterations = 200000; // Safety valve against runaway loops in the browser
+    return { ready: true, simRes, propellant, density, motorVolume, perGrainReg };
+  }
 
-    while (simRes.shouldContinueSim(burnoutThrustThres)) {
-      if (++iterationGuard > maxIterations) {
-        simRes.addAlert({ level: SimAlertLevel.ERROR, type: SimAlertType.VALUE, description: 'Simulation exceeded maximum iteration count', location: 'Motor' });
-        break;
+  /** Runs exactly one timestep, mutating `simRes`'s channels and returning the next regression
+   * array — the loop body both `runSimulation` and `runSimulationChunked` share, so chunking the
+   * work for the progress dialog can't drift from the non-chunked path. */
+  private stepOnce(
+    simRes: SimulationResult,
+    perGrainReg: number[],
+    propellant: PropellantConfig,
+    density: number,
+    motorVolume: number,
+  ): number[] {
+    const dTime = this.design.config.timestep;
+    const burnoutWebThres = this.design.config.burnoutWebThres;
+
+    let massFlow = 0;
+    const perGrainMass = this.grains.map(() => 0);
+    const perGrainMassFlow = this.grains.map(() => 0);
+    const perGrainMassFlux = this.grains.map(() => 0);
+    const perGrainWeb = this.grains.map(() => 0);
+    const nextReg = [...perGrainReg];
+
+    this.grains.forEach((grain, gid) => {
+      if (grain.getWebLeft(perGrainReg[gid]) > burnoutWebThres) {
+        const lastPressure = simRes.channels.pressure[simRes.channels.pressure.length - 1];
+        const reg = dTime * propellantMod.getBurnRate(propellant, lastPressure);
+        perGrainMassFlux[gid] = grain.getPeakMassFlux(massFlow, dTime, perGrainReg[gid], reg, density);
+        perGrainMass[gid] = grain.getVolumeAtRegression(perGrainReg[gid]) * density;
+        const lastMass = simRes.multiChannels.mass[simRes.multiChannels.mass.length - 1][gid];
+        massFlow += (lastMass - perGrainMass[gid]) / dTime;
+        nextReg[gid] = perGrainReg[gid] + reg;
+        perGrainWeb[gid] = grain.getWebLeft(nextReg[gid]);
       }
+      perGrainMassFlow[gid] = massFlow;
+    });
 
-      let massFlow = 0;
-      const perGrainMass = this.grains.map(() => 0);
-      const perGrainMassFlow = this.grains.map(() => 0);
-      const perGrainMassFlux = this.grains.map(() => 0);
-      const perGrainWeb = this.grains.map(() => 0);
-      const nextReg = [...perGrainReg];
+    simRes.multiChannels.regression.push([...nextReg]);
+    simRes.multiChannels.web.push(perGrainWeb);
+    simRes.channels.volumeLoading.push(100 * (1 - this.calcFreeVolume(nextReg) / motorVolume));
+    simRes.multiChannels.mass.push(perGrainMass);
+    simRes.multiChannels.massFlow.push(perGrainMassFlow);
+    simRes.multiChannels.massFlux.push(perGrainMassFlux);
 
-      this.grains.forEach((grain, gid) => {
-        if (grain.getWebLeft(perGrainReg[gid]) > burnoutWebThres) {
-          const lastPressure = simRes.channels.pressure[simRes.channels.pressure.length - 1];
-          const reg = dTime * propellantMod.getBurnRate(propellant, lastPressure);
-          perGrainMassFlux[gid] = grain.getPeakMassFlux(massFlow, dTime, perGrainReg[gid], reg, density);
-          perGrainMass[gid] = grain.getVolumeAtRegression(perGrainReg[gid]) * density;
-          const lastMass = simRes.multiChannels.mass[simRes.multiChannels.mass.length - 1][gid];
-          massFlow += (lastMass - perGrainMass[gid]) / dTime;
-          nextReg[gid] = perGrainReg[gid] + reg;
-          perGrainWeb[gid] = grain.getWebLeft(nextReg[gid]);
-        }
-        perGrainMassFlow[gid] = massFlow;
-      });
-      perGrainReg = nextReg;
+    const dThroat = simRes.channels.dThroat[simRes.channels.dThroat.length - 1];
+    simRes.channels.kn.push(this.calcKN(nextReg, dThroat));
 
-      simRes.multiChannels.regression.push([...perGrainReg]);
-      simRes.multiChannels.web.push(perGrainWeb);
-      simRes.channels.volumeLoading.push(100 * (1 - this.calcFreeVolume(perGrainReg) / motorVolume));
-      simRes.multiChannels.mass.push(perGrainMass);
-      simRes.multiChannels.massFlow.push(perGrainMassFlow);
-      simRes.multiChannels.massFlux.push(perGrainMassFlux);
+    const lastKn = simRes.channels.kn[simRes.channels.kn.length - 1];
+    const pressure = this.calcIdealPressure(nextReg, dThroat, lastKn);
+    simRes.channels.pressure.push(pressure);
 
-      const dThroat = simRes.channels.dThroat[simRes.channels.dThroat.length - 1];
-      simRes.channels.kn.push(this.calcKN(perGrainReg, dThroat));
+    const perGrainMachNumber = perGrainMassFlux.map((flux) => this.calcMachNumber(pressure, flux));
+    simRes.multiChannels.machNumber.push(perGrainMachNumber);
 
-      const lastKn = simRes.channels.kn[simRes.channels.kn.length - 1];
-      const pressure = this.calcIdealPressure(perGrainReg, dThroat, lastKn);
-      simRes.channels.pressure.push(pressure);
+    const { k: gamma } = propellantMod.getCombustionProperties(propellant, pressure);
+    const exitPressure = nozzleMod.getExitPressure(this.design.nozzle, gamma, pressure);
+    simRes.channels.exitPressure.push(exitPressure);
 
-      const perGrainMachNumber = perGrainMassFlux.map((flux) => this.calcMachNumber(pressure, flux));
-      simRes.multiChannels.machNumber.push(perGrainMachNumber);
+    const lastPressure = simRes.channels.pressure[simRes.channels.pressure.length - 1];
+    const force = this.calcForce(lastPressure, dThroat, exitPressure);
+    simRes.pushForce(force);
 
-      const { k: gamma } = propellantMod.getCombustionProperties(propellant, pressure);
-      const exitPressure = nozzleMod.getExitPressure(this.design.nozzle, gamma, pressure);
-      simRes.channels.exitPressure.push(exitPressure);
+    simRes.channels.time.push(simRes.channels.time[simRes.channels.time.length - 1] + dTime);
 
-      const lastPressure = simRes.channels.pressure[simRes.channels.pressure.length - 1];
-      const force = this.calcForce(lastPressure, dThroat, exitPressure);
-      simRes.pushForce(force);
+    let slagRate = 0;
+    if (pressure !== 0) slagRate = (1 / pressure) * this.design.nozzle.slagCoeff;
+    const erosionRate = pressure * this.design.nozzle.erosionCoeff;
+    const change = dTime * (-2 * slagRate + 2 * erosionRate);
+    simRes.channels.dThroat.push(dThroat + change);
 
-      simRes.channels.time.push(simRes.channels.time[simRes.channels.time.length - 1] + dTime);
+    return nextReg;
+  }
 
-      let slagRate = 0;
-      if (pressure !== 0) slagRate = (1 / pressure) * this.design.nozzle.slagCoeff;
-      const erosionRate = pressure * this.design.nozzle.erosionCoeff;
-      const change = dTime * (-2 * slagRate + 2 * erosionRate);
-      simRes.channels.dThroat.push(dThroat + change);
-
-      if (onProgress) {
-        const progress = Math.max(...this.grains.map((g, gid) => g.getWebLeft(perGrainReg[gid]) / g.getWebLeft(0)));
-        if (onProgress(1 - progress)) return simRes;
-      }
-    }
-
+  /** The alert checks run once after the timestep loop finishes — shared by `runSimulation` and
+   * `runSimulationChunked`. */
+  private finalizeSimulation(simRes: SimulationResult, propellant: PropellantConfig): void {
     simRes.success = true;
 
     if (simRes.getPeakMassFlux() > this.design.config.maxMassFlux) {
@@ -242,7 +247,7 @@ export class Motor {
       simRes.addAlert({ level: SimAlertLevel.WARNING, type: SimAlertType.VALUE, description: 'Low exit pressure, nozzle flow may separate', location: 'Nozzle' });
     }
 
-    if (simRes.getAverageForce() < burnoutThrustThres) {
+    if (simRes.getAverageForce() < this.design.config.burnoutThrustThres) {
       simRes.addAlert({ level: SimAlertLevel.ERROR, type: SimAlertType.VALUE, description: 'Motor did not generate thrust. Check Kn, chamber pressure and expansion ratio.', location: 'Motor' });
     }
 
@@ -255,7 +260,80 @@ export class Motor {
         }
       }
     }
+  }
 
+  /**
+   * Runs the timestepped simulation. `onProgress`, if given, is called with a 0-1 completion
+   * fraction after each step; returning `true` cancels the simulation early (matching the Python
+   * callback's cancel-on-true convention).
+   */
+  runSimulation(onProgress?: (progress: number) => boolean): SimulationResult {
+    const prep = this.prepareSimulation();
+    if (!prep.ready) return prep.simRes;
+    const { simRes, propellant, density, motorVolume } = prep;
+    let perGrainReg = prep.perGrainReg;
+
+    let iterationGuard = 0;
+    const maxIterations = 200000; // Safety valve against runaway loops in the browser
+
+    while (simRes.shouldContinueSim(this.design.config.burnoutThrustThres)) {
+      if (++iterationGuard > maxIterations) {
+        simRes.addAlert({ level: SimAlertLevel.ERROR, type: SimAlertType.VALUE, description: 'Simulation exceeded maximum iteration count', location: 'Motor' });
+        break;
+      }
+
+      perGrainReg = this.stepOnce(simRes, perGrainReg, propellant, density, motorVolume);
+
+      if (onProgress) {
+        const progress = Math.max(...this.grains.map((g, gid) => g.getWebLeft(perGrainReg[gid]) / g.getWebLeft(0)));
+        if (onProgress(1 - progress)) return simRes;
+      }
+    }
+
+    this.finalizeSimulation(simRes, propellant);
+
+    return simRes;
+  }
+
+  /**
+   * Same simulation as `runSimulation`, but chunked with periodic `await` yields so the browser
+   * can repaint a progress indicator and register a Cancel click mid-run — genuinely interruptible,
+   * not just deferred to a `setTimeout` before a single blocking call. `onProgress` receives a 0-1
+   * fraction after every yield; `isCancelled` is polled at the same points and, if it returns true,
+   * the run stops and this resolves to `null`.
+   */
+  async runSimulationChunked(
+    onProgress: (progress: number) => void,
+    isCancelled: () => boolean,
+    chunkSize = 200,
+  ): Promise<SimulationResult | null> {
+    const prep = this.prepareSimulation();
+    if (!prep.ready) return prep.simRes;
+    const { simRes, propellant, density, motorVolume } = prep;
+    let perGrainReg = prep.perGrainReg;
+
+    let iterationGuard = 0;
+    const maxIterations = 200000;
+
+    while (simRes.shouldContinueSim(this.design.config.burnoutThrustThres)) {
+      if (++iterationGuard > maxIterations) {
+        simRes.addAlert({ level: SimAlertLevel.ERROR, type: SimAlertType.VALUE, description: 'Simulation exceeded maximum iteration count', location: 'Motor' });
+        break;
+      }
+
+      perGrainReg = this.stepOnce(simRes, perGrainReg, propellant, density, motorVolume);
+
+      if (iterationGuard % chunkSize === 0) {
+        const progress = Math.max(...this.grains.map((g, gid) => g.getWebLeft(perGrainReg[gid]) / g.getWebLeft(0)));
+        onProgress(1 - progress);
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (isCancelled()) return null;
+      }
+    }
+
+    this.finalizeSimulation(simRes, propellant);
+    onProgress(1);
     return simRes;
   }
 }

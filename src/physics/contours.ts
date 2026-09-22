@@ -33,21 +33,48 @@ function edgePoint(
 /**
  * Walks every cell of a `dim`x`dim` grid (row-major) and returns the marching-squares contour
  * segments crossing `level`, plus their total length.
+ *
+ * `restrictInterior` reproduces a quirk of the Python original's perimeter-only fast path
+ * (`mathlib._get_perimeter`, called with `including_contours=False`): it skips the outer 3 pixels
+ * of the array *and* any square whose center is within roughly 3 pixels of the grain's outer wall
+ * (measured from the array's center, i.e. the circular OD, not the square array's corners). That
+ * exclusion only applies when perimeter is wanted without the actual contour geometry — the
+ * contour-returning path used for the regression preview does not apply it, so it must stay off by
+ * default here too (`contourPerimeter` is the only caller that turns it on). Skipping it entirely
+ * left our perimeter table overestimating the burning perimeter by double digits in the last few
+ * percent of regression, right where a full or near-full sliver of remaining propellant sits close
+ * against the outer wall (see fmmGrain.ts's reference tests for the effect on burn time).
  */
 export function marchContour(
   grid: Float64Array,
   dim: number,
   level: number,
   valid?: Uint8Array,
+  options?: { restrictInterior?: boolean; collectSegments?: boolean },
 ): { segments: Segment[]; perimeter: number } {
   const segments: Segment[] = [];
   let perimeter = 0;
+  const restrictInterior = options?.restrictInterior ?? false;
+  const collectSegments = options?.collectSegments ?? true;
+  const gridCenter = dim / 2;
+  const radiusCutoffSq = (gridCenter - 3) ** 2;
 
   const at = (r: number, c: number) => grid[r * dim + c];
   const isValid = (r: number, c: number) => !valid || valid[r * dim + c] === 1;
 
-  for (let r = 0; r < dim - 1; r++) {
-    for (let c = 0; c < dim - 1; c++) {
+  const rLo = restrictInterior ? 3 : 0;
+  const rHi = restrictInterior ? dim - 5 : dim - 2;
+  const cLo = restrictInterior ? 3 : 0;
+  const cHi = restrictInterior ? dim - 5 : dim - 2;
+
+  for (let r = rLo; r <= rHi; r++) {
+    const dr = r + 0.5 - gridCenter;
+    const drSq = dr * dr;
+    for (let c = cLo; c <= cHi; c++) {
+      if (restrictInterior) {
+        const dc = c + 0.5 - gridCenter;
+        if (drSq + dc * dc > radiusCutoffSq) continue;
+      }
       // Skip any cell that touches the excluded domain (e.g. the square map's corners outside the
       // grain's circular OD) — those cells hold Infinity/placeholder distance values that would
       // otherwise interpolate into NaN or a spurious contour running along the domain boundary.
@@ -74,7 +101,7 @@ export function marchContour(
       const left = () => edgePoint(r, c, r + 1, c, a, d, level);
 
       const addSeg = (p1: [number, number], p2: [number, number]) => {
-        segments.push({ a: p1, b: p2 });
+        if (collectSegments) segments.push({ a: p1, b: p2 });
         perimeter += Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
       };
 
@@ -135,5 +162,5 @@ export function marchContour(
 }
 
 export function contourPerimeter(grid: Float64Array, dim: number, level: number, valid?: Uint8Array): number {
-  return marchContour(grid, dim, level, valid).perimeter;
+  return marchContour(grid, dim, level, valid, { restrictInterior: true, collectSegments: false }).perimeter;
 }
