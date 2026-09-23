@@ -10,6 +10,7 @@
  * already uses for face area, just extended to cover perimeter too. See fmm.ts and contours.ts for
  * the numerical building blocks.
  */
+import { yieldToEventLoop } from '../asyncUtils';
 import { contourPerimeter } from '../contours';
 import { fastMarchDistance } from '../fmm';
 import { PerforatedGrain } from './base';
@@ -93,10 +94,56 @@ export abstract class FmmGrain extends PerforatedGrain {
   simulationSetup(config: { mapDim: number }): void {
     this.initGeometry(config.mapDim);
     this.generateCoreMap();
-    this.generateRegressionMap();
+    const { regressionMap, levels, faceAreaValues } = this.prepareRegressionTables();
+    const perimeterValues = new Float64Array(levels.length);
+    for (let i = 0; i < levels.length; i++) {
+      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, levels[i], this.inDomain));
+    }
+    this.faceAreaTable = { levels, values: faceAreaValues };
+    this.perimeterTable = { levels, values: perimeterValues };
   }
 
-  private generateRegressionMap(): void {
+  /**
+   * Chunked counterpart to `simulationSetup`, for `Motor.runSimulationChunked` to call instead.
+   * Everything up through the face-area table (`prepareRegressionTables`) is fast — one pass over
+   * the grid plus a histogram, see its own comment — so it stays synchronous; only the perimeter
+   * table needs chunking, since it re-runs marching squares over the *whole* grid once per level
+   * (see `contourPerimeter`) and a Moon Burner-shaped grain can need close to `mapDim` levels.
+   * Yields are gated by wall-clock time rather than a fixed number of levels, matching the timestep
+   * loop's own `maxMsBetweenYields` pattern in motor.ts, since a fixed count would either yield too
+   * often for a small mapDim or not often enough for a large one.
+   */
+  async simulationSetupChunked(config: { mapDim: number }, onProgress: (fraction: number) => void, isCancelled: () => boolean): Promise<boolean> {
+    this.initGeometry(config.mapDim);
+    this.generateCoreMap();
+    const { regressionMap, levels, faceAreaValues } = this.prepareRegressionTables();
+
+    const perimeterValues = new Float64Array(levels.length);
+    const maxMsBetweenYields = 40;
+    let lastYield = Date.now();
+    for (let i = 0; i < levels.length; i++) {
+      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, levels[i], this.inDomain));
+      if (Date.now() - lastYield >= maxMsBetweenYields) {
+        onProgress(i / levels.length);
+        // eslint-disable-next-line no-await-in-loop
+        await yieldToEventLoop();
+        if (isCancelled()) return false;
+        lastYield = Date.now();
+      }
+    }
+
+    this.faceAreaTable = { levels, values: faceAreaValues };
+    this.perimeterTable = { levels, values: perimeterValues };
+    return true;
+  }
+
+  /**
+   * The part of setup shared between the synchronous and chunked paths: runs fast marching once
+   * and builds the level grid + face-area table from it. Cheap enough (one grid pass plus a
+   * histogram — see the face-area loop below) to never need chunking on its own; only the
+   * perimeter table built from `levels`/`regressionMap` afterward does.
+   */
+  private prepareRegressionTables(): { regressionMap: Float64Array; levels: Float64Array; faceAreaValues: Float64Array } {
     const h = 2 / this.mapDim;
     const regressionMap = fastMarchDistance(this.coreMap, this.inDomain, this.mapDim, h);
     this.regressionMap = regressionMap;
@@ -148,12 +195,7 @@ export abstract class FmmGrain extends PerforatedGrain {
       }
     }
 
-    const perimeterValues = new Float64Array(numLevels);
-    for (let i = 0; i < numLevels; i++) {
-      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, levels[i], this.inDomain));
-    }
-    this.faceAreaTable = { levels, values: faceAreaValues };
-    this.perimeterTable = { levels, values: perimeterValues };
+    return { regressionMap, levels, faceAreaValues };
   }
 
   getCorePerimeter(regDist: number): number {

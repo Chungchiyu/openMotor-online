@@ -74,4 +74,56 @@ describe('runSimulationChunked matches runSimulation exactly', () => {
     expect(result).toBeNull();
     expect(elapsedMs).toBeLessThan(500); // the full Star Grain setup+run takes seconds, not ms
   });
+
+  it(
+    'reports real, increasing progress *during* a Star Grain\'s setup, not just before/after it',
+    async () => {
+      // The chunked setup path (FmmGrain.simulationSetupChunked) is what actually fixes the
+      // progress dialog sitting frozen for the whole multi-second table build — this locks in that
+      // `onProgress` genuinely fires with distinct, increasing fractions while setup is still in
+      // flight, not just once at the start and once after everything's already done.
+      const design = refStar.motorDict as unknown as MotorDesign;
+      const motor = new Motor(design);
+      const setupFractions: number[] = [];
+      let sawRunPhase = false;
+      const result = await motor.runSimulationChunked((p) => {
+        if (p.phase === 'setup') setupFractions.push(p.fraction);
+        else sawRunPhase = true;
+      }, () => false);
+
+      expect(result?.success).toBe(true);
+      expect(sawRunPhase).toBe(true);
+      // More than just the guaranteed "0 before" and "1 after each grain" calls — i.e. real
+      // progress reported from inside the perimeter-table loop, not a single jump from 0 to 1.
+      expect(setupFractions.length).toBeGreaterThan(3);
+      for (let i = 1; i < setupFractions.length; i++) {
+        expect(setupFractions[i]).toBeGreaterThanOrEqual(setupFractions[i - 1]);
+      }
+      expect(setupFractions[0]).toBe(0);
+      expect(setupFractions[setupFractions.length - 1]).toBe(1);
+    },
+    20000,
+  );
+
+  it(
+    'cancelling partway through a Star Grain\'s setup stops promptly instead of running it to completion',
+    async () => {
+      const design = refStar.motorDict as unknown as MotorDesign;
+      const motor = new Motor(design);
+      let progressCalls = 0;
+      const start = Date.now();
+      const result = await motor.runSimulationChunked(
+        () => {
+          progressCalls++;
+        },
+        () => progressCalls >= 3, // cancel a few callbacks into the perimeter-table loop
+      );
+      const elapsedMs = Date.now() - start;
+      expect(result).toBeNull();
+      // Loose bound (not a tight one — wall-clock timing) that only needs to distinguish "stopped
+      // partway" from "ran the whole multi-second setup and ignored the cancellation".
+      expect(elapsedMs).toBeLessThan(5000);
+    },
+    20000,
+  );
 });

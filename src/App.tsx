@@ -4,7 +4,7 @@ import { buildBurnSimFile, parseBurnSimFile } from './exporters/burnsim';
 import { buildCsvFile } from './exporters/csv';
 import { buildEngFile, type EngSettings } from './exporters/eng';
 import { useHistory } from './history';
-import { Motor } from './physics/motor';
+import { Motor, type SimProgress } from './physics/motor';
 import type { SimulationResult } from './physics/simResult';
 import { defaultMotorConfig, defaultNozzle, type MotorDesign } from './physics/types';
 import { autosave, downloadDesign, downloadTextFile, loadAutosave, parseDesignFile } from './persistence';
@@ -31,7 +31,7 @@ function AppInner() {
 
   const [selection, setSelection] = useState<Selection>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
-  const [runProgress, setRunProgress] = useState<number | null>(null);
+  const [runProgress, setRunProgress] = useState<SimProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
@@ -161,7 +161,7 @@ function AppInner() {
   const handleRun = async () => {
     setError(null);
     cancelRef.current = false;
-    setRunProgress(0);
+    setRunProgress({ phase: 'setup', fraction: 0 });
     const motor = new Motor(design);
     try {
       const simResult = await motor.runSimulationChunked(

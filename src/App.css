@@ -313,28 +313,6 @@
   transition: width 0.1s linear;
 }
 
-/* Shown while `progress` is still 0 — validation and grain setup (the fast-marching grid + burn
- * table build for Star/Moon Burner grains) happen before the timestep loop's first real progress
- * callback, as one uninterruptible synchronous block; nothing on the main thread can update a
- * determinate bar's width during that block. `transform` is compositor-driven, so this keeps
- * animating on the GPU even while JS is fully blocked, rather than freezing like a width-based fill
- * would — the same reason browsers' own file-upload/page-load indicators use transform, not width,
- * for their indeterminate state. No change to the actual simulation code, so no performance cost. */
-@keyframes progress-indeterminate {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(400%);
-  }
-}
-
-.progress-fill.indeterminate {
-  width: 25%;
-  animation: progress-indeterminate 1.1s ease-in-out infinite;
-  will-change: transform;
-}
-
 .recent-files-list {
   min-width: 220px;
 }

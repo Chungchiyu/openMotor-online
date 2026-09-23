@@ -2,6 +2,7 @@
  * The Motor class: holds a set of grains, a nozzle and a propellant, and runs the timestepped
  * internal ballistics simulation. Ported from motorlib/motor.py.
  */
+import { yieldToEventLoop } from './asyncUtils';
 import { atmosphericPressure, gasConstant } from './constants';
 import * as geometry from './geometry';
 import { buildGrain } from './grains';
@@ -12,12 +13,14 @@ import * as propellantMod from './propellant';
 import { SimulationResult } from './simResult';
 import { SimAlertLevel, SimAlertType, type MotorDesign, type PropellantConfig, type SimAlert } from './types';
 
-/** Hands control back to the browser's event loop — long enough for a paint + input processing
- * pass, which is what lets a just-rendered progress dialog actually appear and a Cancel click
- * actually register. */
-function yieldToEventLoop(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
+/**
+ * Progress reported by `runSimulationChunked`. `phase` distinguishes "still setting up" (grain
+ * geometry/lookup tables — for a Star/Moon Burner grain this alone can take seconds, see
+ * fmmGrain.ts) from "running the timestep loop" (fast — usually milliseconds to a couple seconds),
+ * since a single 0-1 number spanning both would make an early "50%" mean two very different things
+ * depending on which phase it fell in.
+ */
+export type SimProgress = { phase: 'setup' | 'run'; fraction: number };
 
 export class Motor {
   design: MotorDesign;
@@ -316,38 +319,48 @@ export class Motor {
   /**
    * Same simulation as `runSimulation`, but chunked with periodic `await` yields so the browser
    * can repaint a progress indicator and register a Cancel click mid-run — genuinely interruptible,
-   * not just deferred to a `setTimeout` before a single blocking call. `onProgress` receives a 0-1
-   * fraction after every yield; `isCancelled` is polled at the same points and, if it returns true,
-   * the run stops and this resolves to `null`.
+   * not just deferred to a `setTimeout` before a single blocking call. `onProgress` receives real,
+   * incremental progress (not a placeholder) throughout both phases below; `isCancelled` is polled
+   * at every yield point and, if it returns true, the run stops and this resolves to `null`.
    *
    * Yields happen at three points, not just inside the timestep loop:
    *  1. Immediately, before any work at all — so the dialog is guaranteed to paint at 0% the
    *     instant Run is clicked, even if everything after this is synchronous.
-   *  2. Between each grain's `simulationSetup()` call — for an FMM grain (Star/Moon Burner) this
-   *     is the actually slow part (it can take seconds at a high map resolution; see fmmGrain.ts),
-   *     far slower than the timestep loop itself, so it needs to be cancellable and keep the
-   *     browser responsive too.
+   *  2. During each grain's setup — for an FMM grain (Star/Moon Burner) this is the actually slow
+   *     part (building the burn-perimeter table can take seconds at a high map resolution; see
+   *     fmmGrain.ts's `simulationSetupChunked`), far slower than the timestep loop itself, so it
+   *     needs real incremental progress and fine-grained cancellation, not just a single yield
+   *     before and after the whole thing. Grains without a chunked setup (BATES) fall back to the
+   *     plain synchronous `simulationSetup` plus one yield, since there's nothing slow to subdivide.
    *  3. Inside the timestep loop, gated by wall-clock time rather than a fixed iteration count —
    *     `chunkSize` alone would never trigger for a run with fewer than `chunkSize` total steps
    *     (common for many BATES motors), silently skipping every yield for the whole run.
    */
-  async runSimulationChunked(
-    onProgress: (progress: number) => void,
-    isCancelled: () => boolean,
-    chunkSize = 200,
-  ): Promise<SimulationResult | null> {
-    onProgress(0);
+  async runSimulationChunked(onProgress: (progress: SimProgress) => void, isCancelled: () => boolean, chunkSize = 200): Promise<SimulationResult | null> {
+    onProgress({ phase: 'setup', fraction: 0 });
     await yieldToEventLoop();
     if (isCancelled()) return null;
 
     const simRes = this.validateDesign();
     if (this.hasBlockingErrors(simRes)) return simRes;
 
-    for (const grain of this.grains) {
-      grain.simulationSetup(this.design.config);
-      // eslint-disable-next-line no-await-in-loop
-      await yieldToEventLoop();
-      if (isCancelled()) return null;
+    for (let gid = 0; gid < this.grains.length; gid++) {
+      const grain = this.grains[gid];
+      if (grain.simulationSetupChunked) {
+        // eslint-disable-next-line no-await-in-loop
+        const completed = await grain.simulationSetupChunked(
+          this.design.config,
+          (frac) => onProgress({ phase: 'setup', fraction: (gid + frac) / this.grains.length }),
+          isCancelled,
+        );
+        if (!completed) return null;
+      } else {
+        grain.simulationSetup(this.design.config);
+        // eslint-disable-next-line no-await-in-loop
+        await yieldToEventLoop();
+        if (isCancelled()) return null;
+      }
+      onProgress({ phase: 'setup', fraction: (gid + 1) / this.grains.length });
     }
 
     const { propellant, density, motorVolume, perGrainReg: initialReg } = this.initializeChannels(simRes);
@@ -368,7 +381,7 @@ export class Motor {
 
       if (iterationGuard % chunkSize === 0 || Date.now() - lastYield >= maxMsBetweenYields) {
         const progress = Math.max(...this.grains.map((g, gid) => g.getWebLeft(perGrainReg[gid]) / g.getWebLeft(0)));
-        onProgress(1 - progress);
+        onProgress({ phase: 'run', fraction: 1 - progress });
         // eslint-disable-next-line no-await-in-loop
         await yieldToEventLoop();
         if (isCancelled()) return null;
@@ -377,7 +390,7 @@ export class Motor {
     }
 
     this.finalizeSimulation(simRes, propellant);
-    onProgress(1);
+    onProgress({ phase: 'run', fraction: 1 });
     return simRes;
   }
 }

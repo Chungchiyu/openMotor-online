@@ -62,6 +62,20 @@ export abstract class Grain {
   }
 
   abstract simulationSetup(config: { mapDim: number }): void;
+
+  /**
+   * Optional chunked variant of `simulationSetup` for grain types whose setup can be slow enough
+   * to need real, incremental progress and mid-setup cancellation — currently only `FmmGrain`
+   * (Star/Moon Burner), where building the burn-perimeter/face-area tables can take seconds. Absent
+   * on grains (like BATES) whose setup is fast enough not to need it; `Motor.runSimulationChunked`
+   * falls back to the plain synchronous `simulationSetup` when this isn't present.
+   *
+   * Must leave the grain fully set up (identically to `simulationSetup`) when it resolves `true`.
+   * Resolves `false` if `isCancelled` reported a cancellation partway through, in which case the
+   * grain may be left partially set up — safe only because the caller discards the whole run (and
+   * every grain in it) on cancellation rather than reusing this instance.
+   */
+  simulationSetupChunked?(config: { mapDim: number }, onProgress: (fraction: number) => void, isCancelled: () => boolean): Promise<boolean>;
 }
 
 export const clampDiameter = (v: number) => Math.min(Math.max(v, 0), maximumRefDiameter);
