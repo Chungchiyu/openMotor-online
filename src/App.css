@@ -612,6 +612,12 @@ button.active {
   width: auto;
 }
 
+.field input.invalid {
+  border-color: #f87171;
+  outline: 1px solid #f87171;
+  outline-offset: -1px;
+}
+
 .field-unit {
   color: var(--text);
   font-size: 12px;

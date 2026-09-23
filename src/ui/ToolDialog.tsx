@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Motor } from '../physics/motor';
 import type { ToolDef } from '../physics/tools';
 import type { MotorDesign } from '../physics/types';
+import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { NumberField } from './fields';
 
 interface Props {
@@ -46,28 +47,37 @@ export function ToolDialog({ tool, design, onApply, onClose }: Props) {
           <h2>{tool.name}</h2>
           <button onClick={onClose}>Close</button>
         </div>
-        <div className="tool-dialog-body">
-          <p className="field-note">{tool.description}</p>
-          {tool.needsSimulation && <p className="field-note">This tool runs a simulation of the current design first.</p>}
-          {tool.inputs.map((input) => (
-            <NumberField
-              key={input.key}
-              label={input.label}
-              unitKind={input.unitKind}
-              unit={input.unit}
-              value={values[input.key]}
-              onChange={(v) => setValues((prev) => ({ ...prev, [input.key]: v }))}
-            />
-          ))}
-          {error && <div className="error-banner">{error}</div>}
-          <div className="apply-cancel-row">
-            <button className="primary" onClick={handleApply}>
-              Apply
-            </button>
-            <button onClick={onClose}>Cancel</button>
+        <FormValidityProvider>
+          <div className="tool-dialog-body">
+            <p className="field-note">{tool.description}</p>
+            {tool.needsSimulation && <p className="field-note">This tool runs a simulation of the current design first.</p>}
+            {tool.inputs.map((input) => (
+              <NumberField
+                key={input.key}
+                label={input.label}
+                unitKind={input.unitKind}
+                unit={input.unit}
+                value={values[input.key]}
+                onChange={(v) => setValues((prev) => ({ ...prev, [input.key]: v }))}
+              />
+            ))}
+            {error && <div className="error-banner">{error}</div>}
+            <ToolApplyCancelRow onApply={handleApply} onCancel={onClose} />
           </div>
-        </div>
+        </FormValidityProvider>
       </div>
+    </div>
+  );
+}
+
+function ToolApplyCancelRow({ onApply, onCancel }: { onApply: () => void; onCancel: () => void }) {
+  const isValid = useFormIsValid();
+  return (
+    <div className="apply-cancel-row">
+      <button className="primary" onClick={onApply} disabled={!isValid} title={isValid ? undefined : 'Fix the highlighted field(s) before applying'}>
+        Apply
+      </button>
+      <button onClick={onCancel}>Cancel</button>
     </div>
   );
 }

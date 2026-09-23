@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PropellantConfig } from '../physics/types';
 import { uniqueName } from '../propellantLibrary';
+import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { PropellantForm } from './PropellantForm';
 import { usePropellantLibrary } from './PropellantLibraryContext';
 
@@ -17,6 +18,18 @@ function blankPropellant(existingNames: string[]): PropellantConfig {
     density: 1700,
     tabs: [{ minPressure: 0, maxPressure: 6895000, a: 1e-5, n: 0.3, k: 1.2, t: 1600, m: 25 }],
   };
+}
+
+function PropellantApplyCancelRow({ onApply, onCancel }: { onApply: () => void; onCancel: () => void }) {
+  const isValid = useFormIsValid();
+  return (
+    <div className="apply-cancel-row">
+      <button className="primary" onClick={onApply} disabled={!isValid} title={isValid ? undefined : 'Fix the highlighted field(s) before applying'}>
+        Apply
+      </button>
+      <button onClick={onCancel}>Cancel</button>
+    </div>
+  );
 }
 
 /**
@@ -79,15 +92,10 @@ export function PropellantEditorDialog({ onClose }: Props) {
           </div>
           <div className="propellant-editor-form">
             {draft ? (
-              <>
+              <FormValidityProvider>
                 <PropellantForm propellant={draft} onChange={setDraft} />
-                <div className="apply-cancel-row">
-                  <button className="primary" onClick={handleApply}>
-                    Apply
-                  </button>
-                  <button onClick={() => setDraft(library.find((p) => p.name === selectedName) ?? null)}>Cancel</button>
-                </div>
-              </>
+                <PropellantApplyCancelRow onApply={handleApply} onCancel={() => setDraft(library.find((p) => p.name === selectedName) ?? null)} />
+              </FormValidityProvider>
             ) : (
               <div className="property-editor empty">Select a propellant from the list, or create a new one.</div>
             )}

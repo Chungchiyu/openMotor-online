@@ -13,6 +13,7 @@ import {
   type StarGrainProperties,
 } from '../physics/types';
 import type { Selection } from './MotorBuilder';
+import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { GrainPreviewPanel } from './GrainPreviewPanel';
 import { NozzlePreview } from './NozzlePreview';
 import { NumberField, SelectField } from './fields';
@@ -187,6 +188,20 @@ function ConfigForm({ config, onChange }: { config: MotorConfigProperties; onCha
   );
 }
 
+/** The Apply/Cancel row shared by all three property forms below — reads the enclosing
+ * `FormValidityProvider` so Apply is disabled while any field in the form is empty/invalid. */
+function ApplyCancelRow({ onApply, onCancel, applyLabel = 'Apply' }: { onApply: () => void; onCancel: () => void; applyLabel?: string }) {
+  const isValid = useFormIsValid();
+  return (
+    <div className="apply-cancel-row">
+      <button className="primary" onClick={onApply} disabled={!isValid} title={isValid ? undefined : 'Fix the highlighted field(s) before applying'}>
+        {applyLabel}
+      </button>
+      <button onClick={onCancel}>Cancel</button>
+    </div>
+  );
+}
+
 interface Props {
   selection: Selection;
   grain: GrainConfig | null;
@@ -241,87 +256,78 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
 
   if (selection.kind === 'nozzle') {
     return (
-      <div className="property-editor">
-        <h3>Nozzle</h3>
-        <NozzleForm nozzle={draftNozzle} onChange={setDraftNozzle} />
-        <div className="apply-cancel-row">
-          <button
-            className="primary"
-            onClick={() => {
+      <FormValidityProvider>
+        <div className="property-editor">
+          <h3>Nozzle</h3>
+          <NozzleForm nozzle={draftNozzle} onChange={setDraftNozzle} />
+          <ApplyCancelRow
+            onApply={() => {
               onApplyNozzle(draftNozzle);
               onClose();
             }}
-          >
-            Apply
-          </button>
-          <button onClick={onClose}>Cancel</button>
+            onCancel={onClose}
+          />
         </div>
-      </div>
+      </FormValidityProvider>
     );
   }
 
   if (selection.kind === 'config') {
     return (
-      <div className="property-editor">
-        <h3>Config</h3>
-        <div className="propellant-preset-row">
-          <button title="Reset all values to openMotor's built-in defaults" onClick={() => setDraftConfig(defaultMotorConfig())}>
-            Reset to Default
-          </button>
-        </div>
-        <ConfigForm config={draftConfig} onChange={setDraftConfig} />
-        <div className="apply-cancel-row">
-          <button
-            className="primary"
-            onClick={() => {
+      <FormValidityProvider>
+        <div className="property-editor">
+          <h3>Config</h3>
+          <div className="propellant-preset-row">
+            <button title="Reset all values to openMotor's built-in defaults" onClick={() => setDraftConfig(defaultMotorConfig())}>
+              Reset to Default
+            </button>
+          </div>
+          <ConfigForm config={draftConfig} onChange={setDraftConfig} />
+          <ApplyCancelRow
+            onApply={() => {
               onApplyConfig(draftConfig);
               onClose();
             }}
-          >
-            Apply
-          </button>
-          <button onClick={onClose}>Cancel</button>
+            onCancel={onClose}
+          />
         </div>
-      </div>
+      </FormValidityProvider>
     );
   }
 
   if (selection.kind === 'grain' && draftGrain) {
     return (
-      <div className="property-editor">
-        <div className="property-editor-columns">
-          <div className="property-editor-form">
-            <h3>{draftGrain.type}</h3>
-            {draftGrain.type === 'BATES' && (
-              <BatesForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'BATES', properties })} />
-            )}
-            {draftGrain.type === 'Star Grain' && (
-              <StarForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Star Grain', properties })} />
-            )}
-            {draftGrain.type === 'Moon Burner' && (
-              <MoonBurnerForm
-                properties={draftGrain.properties}
-                onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
-              />
-            )}
-            <div className="apply-cancel-row">
-              <button
-                className="primary"
-                onClick={() => {
+      <FormValidityProvider>
+        <div className="property-editor">
+          <div className="property-editor-columns">
+            <div className="property-editor-form">
+              <h3>{draftGrain.type}</h3>
+              {draftGrain.type === 'BATES' && (
+                <BatesForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'BATES', properties })} />
+              )}
+              {draftGrain.type === 'Star Grain' && (
+                <StarForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Star Grain', properties })} />
+              )}
+              {draftGrain.type === 'Moon Burner' && (
+                <MoonBurnerForm
+                  properties={draftGrain.properties}
+                  onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
+                />
+              )}
+              <ApplyCancelRow
+                onApply={() => {
                   onApplyGrain(selection.index, draftGrain);
                   onClose();
                 }}
-              >
-                Apply
-              </button>
-              <button onClick={onClose}>Cancel</button>
+                onCancel={onClose}
+              />
+            </div>
+            <div className="property-editor-preview">
+              <GrainPreviewPanel preview={preview} grain={builtGrain} />
             </div>
           </div>
-          <div className="property-editor-preview">
-            <GrainPreviewPanel preview={preview} grain={builtGrain} />
-          </div>
         </div>
-      </div>
+      </FormValidityProvider>
     );
   }
 

@@ -1,5 +1,6 @@
-import type { ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { convert } from '../physics/units';
+import { useFieldValidity } from './FormValidityContext';
 import { useUnits } from './UnitsContext';
 
 function roundForDisplay(value: number): number {
@@ -31,10 +32,33 @@ export function NumberField({ label, value, unitKind, unit, step, min, max, onCh
   const displayUnit = unitKind ? unitFor(unitKind) : unit;
   const displayValue = unitKind ? convert(value, unitKind, displayUnit!) : value;
 
+  // The input is backed by its own text buffer, not bound directly to `displayValue` — otherwise
+  // it's impossible to ever show an empty box (a live-typed "" would immediately be coerced back
+  // to a number and rendered as one). `lastCommitted` records the last (value, unit) pair *we*
+  // pushed upstream via onChange, so the sync effect below only overwrites the user's in-progress
+  // text when the value changed for some OTHER reason (a draft reset, an undo, a unit switch) —
+  // not as an echo of the keystroke that just caused it.
+  const [text, setText] = useState(() => String(roundForDisplay(displayValue)));
+  const lastCommitted = useRef({ value, unit: displayUnit });
+
+  useEffect(() => {
+    if (lastCommitted.current.value !== value || lastCommitted.current.unit !== displayUnit) {
+      setText(String(roundForDisplay(displayValue)));
+      lastCommitted.current = { value, unit: displayUnit };
+    }
+  }, [value, displayUnit, displayValue]);
+
+  const isInvalid = Number.isNaN(Number.parseFloat(text));
+  const fieldId = useId();
+  useFieldValidity(fieldId, !isInvalid);
+
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const typed = Number.parseFloat(e.target.value);
-    if (Number.isNaN(typed)) return;
+    const raw = e.target.value;
+    setText(raw);
+    const typed = e.target.valueAsNumber;
+    if (Number.isNaN(typed)) return; // Empty, or not (yet) a complete number — leave the upstream value alone.
     const canonical = unitKind ? convert(typed, displayUnit!, unitKind) : typed;
+    lastCommitted.current = { value: canonical, unit: displayUnit };
     onChange(canonical);
   };
 
@@ -42,7 +66,15 @@ export function NumberField({ label, value, unitKind, unit, step, min, max, onCh
     <label className="field">
       <span className="field-label">{label}</span>
       <span className="field-input">
-        <input type="number" value={roundForDisplay(displayValue)} step={step ?? 'any'} min={min} max={max} onChange={handleChange} />
+        <input
+          type="number"
+          className={isInvalid ? 'invalid' : undefined}
+          value={text}
+          step={step ?? 'any'}
+          min={min}
+          max={max}
+          onChange={handleChange}
+        />
         {displayUnit && <span className="field-unit">{displayUnit}</span>}
       </span>
     </label>

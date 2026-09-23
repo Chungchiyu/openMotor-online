@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { EngSettings } from '../exporters/eng';
+import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { NumberField } from './fields';
 
 interface Props {
@@ -26,31 +27,40 @@ export function EngExportDialog({ defaultDesignation, onExport, onClose }: Props
           <h2>Export .eng File</h2>
           <button onClick={onClose}>Close</button>
         </div>
-        <div className="tool-dialog-body">
-          <label className="field">
-            <span className="field-label">Designation</span>
-            <input type="text" value={settings.designation} onChange={(e) => setSettings((s) => ({ ...s, designation: e.target.value }))} />
-          </label>
-          <NumberField label="Motor Diameter" unitKind="m" value={settings.diameter} onChange={(v) => setSettings((s) => ({ ...s, diameter: v }))} />
-          <NumberField label="Motor Length" unitKind="m" value={settings.length} onChange={(v) => setSettings((s) => ({ ...s, length: v }))} />
-          <NumberField
-            label="Hardware Mass"
-            unitKind="kg"
-            value={settings.hardwareMass}
-            onChange={(v) => setSettings((s) => ({ ...s, hardwareMass: v }))}
-          />
-          <label className="field">
-            <span className="field-label">Manufacturer</span>
-            <input type="text" value={settings.manufacturer} onChange={(e) => setSettings((s) => ({ ...s, manufacturer: e.target.value }))} />
-          </label>
-          <div className="apply-cancel-row">
-            <button className="primary" onClick={() => onExport(settings)}>
-              Export
-            </button>
-            <button onClick={onClose}>Cancel</button>
+        <FormValidityProvider>
+          <div className="tool-dialog-body">
+            <label className="field">
+              <span className="field-label">Designation</span>
+              <input type="text" value={settings.designation} onChange={(e) => setSettings((s) => ({ ...s, designation: e.target.value }))} />
+            </label>
+            <NumberField label="Motor Diameter" unitKind="m" value={settings.diameter} onChange={(v) => setSettings((s) => ({ ...s, diameter: v }))} />
+            <NumberField label="Motor Length" unitKind="m" value={settings.length} onChange={(v) => setSettings((s) => ({ ...s, length: v }))} />
+            <NumberField
+              label="Hardware Mass"
+              unitKind="kg"
+              value={settings.hardwareMass}
+              onChange={(v) => setSettings((s) => ({ ...s, hardwareMass: v }))}
+            />
+            <label className="field">
+              <span className="field-label">Manufacturer</span>
+              <input type="text" value={settings.manufacturer} onChange={(e) => setSettings((s) => ({ ...s, manufacturer: e.target.value }))} />
+            </label>
+            <EngExportApplyCancelRow onExport={() => onExport(settings)} onCancel={onClose} />
           </div>
-        </div>
+        </FormValidityProvider>
       </div>
+    </div>
+  );
+}
+
+function EngExportApplyCancelRow({ onExport, onCancel }: { onExport: () => void; onCancel: () => void }) {
+  const isValid = useFormIsValid();
+  return (
+    <div className="apply-cancel-row">
+      <button className="primary" onClick={onExport} disabled={!isValid} title={isValid ? undefined : 'Fix the highlighted field(s) before exporting'}>
+        Export
+      </button>
+      <button onClick={onCancel}>Cancel</button>
     </div>
   );
 }

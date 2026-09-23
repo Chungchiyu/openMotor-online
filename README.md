@@ -34,7 +34,9 @@ the physics engine is a from-scratch TypeScript port of openMotor's Python `moto
   design whose FMM grain setup alone can take seconds), yields between each grain's setup too, and
   yields the timestep loop on a wall-clock timer rather than a fixed iteration count (so short runs
   still get a chance to repaint/cancel instead of completing in one blocking call) — plus an alerts
-  dialog that pops up automatically when a run produces warnings.
+  dialog that pops up automatically when a run produces warnings. Every numeric input can be
+  cleared to empty while typing rather than snapping back to a number; an empty/invalid field gets
+  a red outline and disables that form's Apply/Save/Export button until it's fixed.
 
 See `src/physics/` for the engine and `src/ui/` for the interface. The physics port is
 regression-tested against golden values produced by running the actual Python `motorlib` — both on
