@@ -15,6 +15,11 @@ export type UnitPrefs = Record<string, string>;
 function defaultPrefs(): UnitPrefs {
   // A metric-leaning default set, close to what a small-motor hobbyist would expect; "m" itself
   // is too coarse for these part sizes, so length defaults to mm rather than the canonical unit.
+  // The last three are the burn rate coefficient / nozzle slag / nozzle erosion coefficients —
+  // their canonical units (m/(s*Pa^n), (m*Pa)/s, m/(s*Pa)) are deliberately hidden from the
+  // Preferences picker (see units.ts's internalOnlyUnits), so they need an explicit default here
+  // too, or unitFor() falls back to showing that hidden, unpickable unit until the user visits
+  // Preferences and picks one themselves.
   return {
     m: 'mm',
     'm^3': 'cm^3',
@@ -26,6 +31,9 @@ function defaultPrefs(): UnitPrefs {
     'kg/m^3': 'kg/m^3',
     'kg/s': 'kg/s',
     'kg/(m^2*s)': 'kg/(m^2*s)',
+    'm/(s*Pa^n)': 'mm/(s*Pa^n)',
+    '(m*Pa)/s': '(m*MPa)/s',
+    'm/(s*Pa)': 'um/(s*mPa)',
   };
 }
 

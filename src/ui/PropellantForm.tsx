@@ -1,7 +1,9 @@
 import { findPreset } from '../propellantLibrary';
 import type { PropellantConfig, PropellantTab } from '../physics/types';
+import { convertBurnRateCoefficient } from '../physics/units';
 import { NumberField } from './fields';
 import { PropellantBurnRateGraph } from './PropellantBurnRateGraph';
+import { useUnits } from './UnitsContext';
 
 function emptyTab(): PropellantTab {
   return { minPressure: 0, maxPressure: 6895000, a: 1e-5, n: 0.3, k: 1.2, t: 1600, m: 25 };
@@ -18,11 +20,20 @@ function TabEditor({
   onRemove: () => void;
   removable: boolean;
 }) {
+  const { unitFor } = useUnits();
+  const aDisplayUnit = unitFor('m/(s*Pa^n)');
+  const displayedA = convertBurnRateCoefficient(tab.a, tab.n, 'm/(s*Pa^n)', aDisplayUnit);
+
   return (
     <div className="propellant-tab-editor">
       <NumberField label="Min Pressure" unitKind="Pa" value={tab.minPressure} onChange={(v) => onChange({ ...tab, minPressure: v })} />
       <NumberField label="Max Pressure" unitKind="Pa" value={tab.maxPressure} onChange={(v) => onChange({ ...tab, maxPressure: v })} />
-      <NumberField label="Burn Rate Coeff. (a)" unit="m/(s·Pa^n)" value={tab.a} onChange={(v) => onChange({ ...tab, a: v })} />
+      <NumberField
+        label="Burn Rate Coeff. (a)"
+        unit={aDisplayUnit}
+        value={displayedA}
+        onChange={(v) => onChange({ ...tab, a: convertBurnRateCoefficient(v, tab.n, aDisplayUnit, 'm/(s*Pa^n)') })}
+      />
       <NumberField label="Burn Rate Exponent (n)" value={tab.n} onChange={(v) => onChange({ ...tab, n: v })} />
       <NumberField label="Specific Heat Ratio (k)" value={tab.k} onChange={(v) => onChange({ ...tab, k: v })} />
       <NumberField label="Combustion Temp (t)" unit="K" value={tab.t} onChange={(v) => onChange({ ...tab, t: v })} />

@@ -100,3 +100,34 @@ export function convFormat(quantity: number, originUnit: string, destUnit: strin
   const rounded = Number(convert(quantity, originUnit, destUnit).toFixed(places));
   return `${rounded} ${destUnit}`;
 }
+
+/**
+ * Converts a propellant's burn rate coefficient `a` (from `r = a * P^n`) between its canonical unit
+ * (`m/(s*Pa^n)`) and a display unit, which the plain `convert()` above can't do: `a`'s unit has the
+ * pressure term raised to the tab's own burn rate exponent `n`, so switching the pressure base from
+ * Pa to psi scales by `(Pa->psi factor)^n` — not a fixed rate a `unitTable` row can express, since it
+ * depends on which propellant tab is being shown. `mm/(s*Pa^n)` keeps the same pressure base, so
+ * it's a plain length conversion and doesn't need `n` at all. Mirrors the split between the generic
+ * per-field conversion and `PropellantTabEditor`'s override in
+ * uilib/widgets/propellantTabEditor.py.
+ */
+export function convertBurnRateCoefficient(value: number, n: number, fromUnit: string, toUnit: string): number {
+  const psiToPa = getConversion('psi', 'Pa'); // 6895: how many Pa in one psi
+  const mToIn = getConversion('m', 'in');
+  const mToMm = getConversion('m', 'mm');
+
+  const toCanonical = (v: number, unit: string): number => {
+    if (unit === 'm/(s*Pa^n)') return v;
+    if (unit === 'mm/(s*Pa^n)') return v / mToMm;
+    if (unit === 'in/(s*psi^n)') return v / mToIn / psiToPa ** n;
+    throw new Error(`Unknown burn rate coefficient unit <${unit}>`);
+  };
+  const fromCanonical = (v: number, unit: string): number => {
+    if (unit === 'm/(s*Pa^n)') return v;
+    if (unit === 'mm/(s*Pa^n)') return v * mToMm;
+    if (unit === 'in/(s*psi^n)') return v * mToIn * psiToPa ** n;
+    throw new Error(`Unknown burn rate coefficient unit <${unit}>`);
+  };
+
+  return fromCanonical(toCanonical(value, fromUnit), toUnit);
+}
