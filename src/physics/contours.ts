@@ -164,3 +164,151 @@ export function marchContour(
 export function contourPerimeter(grid: Float64Array, dim: number, level: number, valid?: Uint8Array): number {
   return marchContour(grid, dim, level, valid, { restrictInterior: true, collectSegments: false }).perimeter;
 }
+
+/**
+ * Builds a whole perimeter-vs-level table in a single pass over the grid, instead of calling
+ * `contourPerimeter` once per level (which re-scans the whole `dim`x`dim` grid for every level —
+ * O(levels.length * dim^2) total, and the dominant cost of FMM grain setup at real mapDim values).
+ *
+ * A cell can only cross a given level when that level falls strictly between the min and max of its
+ * four corner values — exactly the condition under which `code` above is neither 0 nor 15. Since the
+ * regression map is an eikonal distance field (|grad| ~= 1 by construction), that range only spans a
+ * handful of consecutive `levels` entries per cell, not the whole table. So scanning cell-first and,
+ * for each cell, only evaluating the few levels it can actually cross — using the exact same
+ * `code`/`edgePoint` logic as `marchContour` above, not an approximation of it — turns the total cost
+ * into O(dim^2), the same order as the face-area histogram and the fast-marching pass itself.
+ *
+ * Row-major cell traversal is preserved (same order `marchContour` would visit cells in for any given
+ * level), so each level's accumulated sum lands in the exact same floating-point addition order as
+ * calling `contourPerimeter` once per level would produce — this is a pure algorithmic speedup, not
+ * a lower-precision substitute (see `contours.perimeterTable.test.ts`, which checks this directly
+ * against the brute-force per-level loop).
+ *
+ * Accumulates into `out` (same length as `levels`), which the caller must zero-initialize itself —
+ * this function only adds to it, so a caller can build the table across several calls restricted to
+ * different `[rowLo, rowHi]` row ranges (see fmmGrain.ts's `simulationSetupChunked`, which chunks
+ * this way so it can still yield/cancel mid-build on a very large grid).
+ */
+export function buildPerimeterTable(
+  grid: Float64Array,
+  dim: number,
+  levels: Float64Array,
+  valid: Uint8Array | undefined,
+  out: Float64Array,
+  rowLo: number,
+  rowHi: number,
+): void {
+  const numLevels = levels.length;
+  if (numLevels === 0) return;
+  const dx = numLevels > 1 ? levels[1] - levels[0] : 0;
+  const gridCenter = dim / 2;
+  const radiusCutoffSq = (gridCenter - 3) ** 2;
+
+  const at = (r: number, c: number) => grid[r * dim + c];
+  const isValid = (r: number, c: number) => !valid || valid[r * dim + c] === 1;
+
+  // Same bounds as `contourPerimeter`'s `restrictInterior: true` (see the comment on `marchContour`).
+  const rLo = Math.max(3, rowLo);
+  const rHi = Math.min(dim - 5, rowHi);
+  const cLo = 3;
+  const cHi = dim - 5;
+
+  for (let r = rLo; r <= rHi; r++) {
+    const dr = r + 0.5 - gridCenter;
+    const drSq = dr * dr;
+    for (let c = cLo; c <= cHi; c++) {
+      const dc = c + 0.5 - gridCenter;
+      if (drSq + dc * dc > radiusCutoffSq) continue;
+      if (!isValid(r, c) || !isValid(r, c + 1) || !isValid(r + 1, c) || !isValid(r + 1, c + 1)) continue;
+
+      const a = at(r, c);
+      const b = at(r, c + 1);
+      const cc = at(r + 1, c + 1);
+      const d = at(r + 1, c);
+
+      const minV = Math.min(a, b, cc, d);
+      const maxV = Math.max(a, b, cc, d);
+      if (minV >= maxV) continue; // Flat cell: never crosses any level (code is always 0 or 15).
+
+      // Candidate level indices are those with minV <= levels[i] < maxV. Widen by a few levels on
+      // each side as a floating-point safety margin — the exact per-level `code` check inside the
+      // loop below discards anything outside the true range at negligible extra cost, so this only
+      // needs to be wide enough to never *miss* a real crossing, not tight.
+      let iLo = 0;
+      let iHi = numLevels - 1;
+      if (numLevels > 1) {
+        iLo = Math.max(0, Math.floor(minV / dx) - 4);
+        iHi = Math.min(numLevels - 1, Math.ceil(maxV / dx) + 4);
+      }
+
+      for (let i = iLo; i <= iHi; i++) {
+        const level = levels[i];
+        const aAbove = a > level;
+        const bAbove = b > level;
+        const cAbove = cc > level;
+        const dAbove = d > level;
+        const code = (aAbove ? 8 : 0) | (bAbove ? 4 : 0) | (cAbove ? 2 : 0) | (dAbove ? 1 : 0);
+        if (code === 0 || code === 15) continue;
+
+        const top = () => edgePoint(r, c, r, c + 1, a, b, level);
+        const right = () => edgePoint(r, c + 1, r + 1, c + 1, b, cc, level);
+        const bottom = () => edgePoint(r + 1, c, r + 1, c + 1, d, cc, level);
+        const left = () => edgePoint(r, c, r + 1, c, a, d, level);
+        const addSeg = (p1: [number, number], p2: [number, number]) => {
+          out[i] += Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
+        };
+
+        switch (code) {
+          case 1:
+          case 14:
+            addSeg(left(), bottom());
+            break;
+          case 2:
+          case 13:
+            addSeg(bottom(), right());
+            break;
+          case 3:
+          case 12:
+            addSeg(left(), right());
+            break;
+          case 4:
+          case 11:
+            addSeg(top(), right());
+            break;
+          case 6:
+          case 9:
+            addSeg(top(), bottom());
+            break;
+          case 7:
+          case 8:
+            addSeg(top(), left());
+            break;
+          case 5: {
+            const center = (a + b + cc + d) / 4;
+            if (center >= level) {
+              addSeg(top(), right());
+              addSeg(left(), bottom());
+            } else {
+              addSeg(top(), left());
+              addSeg(bottom(), right());
+            }
+            break;
+          }
+          case 10: {
+            const center = (a + b + cc + d) / 4;
+            if (center >= level) {
+              addSeg(top(), left());
+              addSeg(bottom(), right());
+            } else {
+              addSeg(top(), right());
+              addSeg(left(), bottom());
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+  }
+}

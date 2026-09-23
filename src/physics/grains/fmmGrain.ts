@@ -11,7 +11,7 @@
  * the numerical building blocks.
  */
 import { yieldToEventLoop } from '../asyncUtils';
-import { contourPerimeter } from '../contours';
+import { buildPerimeterTable } from '../contours';
 import { fastMarchDistance } from '../fmm';
 import { savgolFilter } from '../numerics';
 import { PerforatedGrain } from './base';
@@ -96,10 +96,10 @@ export abstract class FmmGrain extends PerforatedGrain {
     this.initGeometry(config.mapDim);
     this.generateCoreMap();
     const { regressionMap, levels, faceAreaValues } = this.prepareRegressionTables();
+    const perimeterRaw = new Float64Array(levels.length);
+    buildPerimeterTable(regressionMap, this.mapDim, levels, this.inDomain, perimeterRaw, 0, this.mapDim - 1);
     const perimeterValues = new Float64Array(levels.length);
-    for (let i = 0; i < levels.length; i++) {
-      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, levels[i], this.inDomain));
-    }
+    for (let i = 0; i < levels.length; i++) perimeterValues[i] = this.mapToLength(perimeterRaw[i]);
     this.faceAreaTable = { levels, values: faceAreaValues };
     this.perimeterTable = { levels, values: perimeterValues };
   }
@@ -107,31 +107,41 @@ export abstract class FmmGrain extends PerforatedGrain {
   /**
    * Chunked counterpart to `simulationSetup`, for `Motor.runSimulationChunked` to call instead.
    * Everything up through the face-area table (`prepareRegressionTables`) is fast — one pass over
-   * the grid plus a histogram, see its own comment — so it stays synchronous; only the perimeter
-   * table needs chunking, since it re-runs marching squares over the *whole* grid once per level
-   * (see `contourPerimeter`) and a Moon Burner-shaped grain can need close to `mapDim` levels.
-   * Yields are gated by wall-clock time rather than a fixed number of levels, matching the timestep
-   * loop's own `maxMsBetweenYields` pattern in motor.ts, since a fixed count would either yield too
-   * often for a small mapDim or not often enough for a large one.
+   * the grid plus a histogram, see its own comment — so it stays synchronous. The perimeter table
+   * (`buildPerimeterTable`) is a single O(mapDim^2) pass too now rather than re-running marching
+   * squares over the whole grid once per level, so it's far cheaper than it used to be, but a single
+   * O(mapDim^2) pass over a large grid can still take a noticeable slice of a frame on a slow device
+   * — so it's still built in row-range chunks here, yielding between them, purely so it stays
+   * cancellable and doesn't block a paint on the low end. Yields are gated by wall-clock time rather
+   * than a fixed row count, matching the timestep loop's own `maxMsBetweenYields` pattern in
+   * motor.ts, since a fixed count would either yield too often for a small mapDim or not often enough
+   * for a large one.
    */
   async simulationSetupChunked(config: { mapDim: number }, onProgress: (fraction: number) => void, isCancelled: () => boolean): Promise<boolean> {
     this.initGeometry(config.mapDim);
     this.generateCoreMap();
     const { regressionMap, levels, faceAreaValues } = this.prepareRegressionTables();
 
-    const perimeterValues = new Float64Array(levels.length);
+    const perimeterRaw = new Float64Array(levels.length);
     const maxMsBetweenYields = 40;
+    const rowsPerChunk = 32;
+    const rowLo = 3;
+    const rowHi = this.mapDim - 5;
     let lastYield = Date.now();
-    for (let i = 0; i < levels.length; i++) {
-      perimeterValues[i] = this.mapToLength(contourPerimeter(regressionMap, this.mapDim, levels[i], this.inDomain));
+    for (let r = rowLo; r <= rowHi; r += rowsPerChunk) {
+      const rEnd = Math.min(rowHi, r + rowsPerChunk - 1);
+      buildPerimeterTable(regressionMap, this.mapDim, levels, this.inDomain, perimeterRaw, r, rEnd);
       if (Date.now() - lastYield >= maxMsBetweenYields) {
-        onProgress(i / levels.length);
+        onProgress((r - rowLo) / (rowHi - rowLo + 1));
         // eslint-disable-next-line no-await-in-loop
         await yieldToEventLoop();
         if (isCancelled()) return false;
         lastYield = Date.now();
       }
     }
+
+    const perimeterValues = new Float64Array(levels.length);
+    for (let i = 0; i < levels.length; i++) perimeterValues[i] = this.mapToLength(perimeterRaw[i]);
 
     this.faceAreaTable = { levels, values: faceAreaValues };
     this.perimeterTable = { levels, values: perimeterValues };
