@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import type { Segment } from '../physics/contours';
+import { useLayoutEffect, useRef } from 'react';
+import { assemblePolylines, type Segment } from '../physics/contours';
 import { contourAtLevel, regDistToLevel, type GrainPreview } from '../physics/preview';
 
 interface Props {
@@ -20,18 +20,30 @@ interface Props {
 function drawSegments(ctx: CanvasRenderingContext2D, segments: Segment[], dim: number, size: number, style: string, width: number) {
   ctx.strokeStyle = style;
   ctx.lineWidth = width;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   const scale = size / dim;
+  // The background raster below renders source pixel r as covering canvas span
+  // [r*scale, (r+1)*scale) — i.e. its center sits at (r+0.5)*scale — but marching squares'
+  // coordinates (from contours.ts) treat grid point r as a point sample sitting exactly at r,
+  // not at the center of a cell. Drawing segments at `coord*scale` directly put every contour
+  // half a source pixel above and to the left of where the raster actually places that same
+  // point, a systematic bias visible as the whole contour sitting slightly up-and-left of the
+  // background it's supposed to trace. The +0.5 re-aligns the two conventions.
+  const toCanvas = (p: [number, number]): [number, number] => [(p[1] + 1.5) * scale, (p[0] + 1.5) * scale];
+
   ctx.beginPath();
-  for (const seg of segments) {
-    // The background raster below renders source pixel r as covering canvas span
-    // [r*scale, (r+1)*scale) — i.e. its center sits at (r+0.5)*scale — but marching squares'
-    // coordinates (from contours.ts) treat grid point r as a point sample sitting exactly at r,
-    // not at the center of a cell. Drawing segments at `coord*scale` directly put every contour
-    // half a source pixel above and to the left of where the raster actually places that same
-    // point, a systematic bias visible as the whole contour sitting slightly up-and-left of the
-    // background it's supposed to trace. The +0.5 re-aligns the two conventions.
-    ctx.moveTo((seg.a[1] + 1.5) * scale, (seg.a[0] + 1.5) * scale);
-    ctx.lineTo((seg.b[1] + 1.5) * scale, (seg.b[0] + 1.5) * scale);
+  // Chained into continuous polylines rather than stroking each marching-squares segment as its own
+  // independent subpath — letting the renderer join consecutive pieces of the same edge (round joins
+  // above) instead of giving every tiny segment its own butt caps avoids seams/jitter some canvas
+  // rasterizers show along an otherwise-smooth curve, worst on sharp features like star points.
+  for (const line of assemblePolylines(segments)) {
+    const [x0, y0] = toCanvas(line[0]);
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < line.length; i++) {
+      const [x, y] = toCanvas(line[i]);
+      ctx.lineTo(x, y);
+    }
   }
   ctx.stroke();
 }
@@ -39,7 +51,13 @@ function drawSegments(ctx: CanvasRenderingContext2D, segments: Segment[], dim: n
 export function GrainPreviewCanvas({ preview, regDist, diameter, size = 220, showContours = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the canvas is repainted synchronously before the browser's
+  // next paint — under rapid updates (e.g. dragging the time scrubber fast), useEffect's deferred
+  // ("passive") timing can let the browser paint a commit's DOM before that commit's canvas redraw
+  // has actually run, showing a stale frame that only updates whenever the next effect happens to
+  // fire — which looks exactly like "the picture is stuck on an old/wrong frame after releasing the
+  // drag" and doesn't self-correct until something else triggers a new render.
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
