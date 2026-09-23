@@ -23,13 +23,14 @@ function Stat({ label, value }: { label: string; value: string }) {
  * both fall back to "-" for an end-burning grain with no port.
  */
 export function SummaryStats({ result }: Props) {
-  const { unitFor } = useUnits();
+  const { unitFor, precision } = useUnits();
 
   // '{:.2f} {}'.format(convert(quantity, inUnit, convUnit), convUnit) — motorlib has no
   // conversion table entry for plain 's' or a dimensionless '', so those just format in place.
+  // The decimal place count (2 by default) is user-configurable via Preferences.
   const stat = (quantity: number, inUnit: string): string => {
     const outUnit = unitFor(inUnit);
-    return `${convert(quantity, inUnit, outUnit).toFixed(2)}${outUnit ? ` ${outUnit}` : ''}`;
+    return `${convert(quantity, inUnit, outUnit).toFixed(precision)}${outUnit ? ` ${outUnit}` : ''}`;
   };
 
   const portRatio = result.getPortRatio();
@@ -41,7 +42,7 @@ export function SummaryStats({ result }: Props) {
       <Stat label="Total Impulse" value={stat(result.getImpulse(), 'Ns')} />
       <Stat label="Delivered ISP" value={stat(result.getISP(), 's')} />
       <Stat label="Burn Time" value={stat(result.getBurnTime(), 's')} />
-      <Stat label="Volume Loading" value={`${result.getVolumeLoading().toFixed(2)}%`} />
+      <Stat label="Volume Loading" value={`${result.getVolumeLoading().toFixed(precision)}%`} />
       <Stat label="Average Pressure" value={stat(result.getAveragePressure(), 'Pa')} />
       <Stat label="Peak Pressure" value={stat(result.getMaxPressure(), 'Pa')} />
       <Stat label="Initial Kn" value={stat(result.getInitialKN(), '')} />

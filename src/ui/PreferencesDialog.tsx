@@ -8,7 +8,7 @@ interface Props {
  * original desktop app's Preferences dialog (uilib/preferencesManager.py: one EnumProperty per
  * motorlib/units.py `unitLabels` entry). Reachable from Edit > Preferences. */
 export function PreferencesDialog({ onClose }: Props) {
-  const { prefs, setUnit } = useUnits();
+  const { prefs, setUnit, precision, setPrecision } = useUnits();
 
   return (
     <div className="about-dialog-backdrop" onClick={onClose}>
@@ -18,6 +18,20 @@ export function PreferencesDialog({ onClose }: Props) {
           <button onClick={onClose}>Close</button>
         </div>
         <div className="preferences-body">
+          <label className="field">
+            <span className="field-label">Motor Statistics Precision</span>
+            <input
+              type="number"
+              min={0}
+              max={6}
+              step={1}
+              value={precision}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n)) setPrecision(n);
+              }}
+            />
+          </label>
           {quantityTypes().map(({ canonical, label, options }) => (
             <label className="field" key={canonical}>
               <span className="field-label">{label}</span>

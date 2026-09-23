@@ -2,6 +2,10 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 import { getAllConversions, unitLabels } from '../physics/units';
 
 const STORAGE_KEY = 'openmotor-online:unitPrefs:v1';
+const PRECISION_STORAGE_KEY = 'openmotor-online:statsPrecision:v1';
+const DEFAULT_PRECISION = 2;
+const MIN_PRECISION = 0;
+const MAX_PRECISION = 6;
 
 /** One entry per quantity type in unitLabels (motorlib/units.py's `unitLabels`) — mirrors the
  * original desktop app's Preferences dialog, which lets each physical quantity (not just length)
@@ -35,18 +39,39 @@ function loadPrefs(): UnitPrefs {
   return defaultPrefs();
 }
 
+function clampPrecision(n: number): number {
+  return Math.min(MAX_PRECISION, Math.max(MIN_PRECISION, Math.round(n)));
+}
+
+function loadPrecision(): number {
+  try {
+    const raw = window.localStorage.getItem(PRECISION_STORAGE_KEY);
+    if (raw !== null) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) return clampPrecision(n);
+    }
+  } catch {
+    // fall through to default
+  }
+  return DEFAULT_PRECISION;
+}
+
 interface Ctx {
   prefs: UnitPrefs;
   setUnit: (canonical: string, display: string) => void;
   /** The chosen display unit for a canonical (SI) unit, e.g. unitFor('Pa') -> 'MPa'. Falls back to
    * the canonical unit itself if there's no preference recorded for it. */
   unitFor: (canonical: string) => string;
+  /** Number of decimal places shown for Motor Statistics values (Preferences dialog). */
+  precision: number;
+  setPrecision: (precision: number) => void;
 }
 
 const UnitsCtx = createContext<Ctx | null>(null);
 
 export function UnitsProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<UnitPrefs>(() => loadPrefs());
+  const [precision, setPrecisionState] = useState<number>(() => loadPrecision());
 
   const value = useMemo<Ctx>(
     () => ({
@@ -63,8 +88,18 @@ export function UnitsProvider({ children }: { children: ReactNode }) {
         });
       },
       unitFor: (canonical) => prefs[canonical] ?? canonical,
+      precision,
+      setPrecision: (next) => {
+        const clamped = clampPrecision(next);
+        setPrecisionState(clamped);
+        try {
+          window.localStorage.setItem(PRECISION_STORAGE_KEY, String(clamped));
+        } catch {
+          // best-effort persistence only
+        }
+      },
     }),
-    [prefs],
+    [prefs, precision],
   );
 
   return <UnitsCtx.Provider value={value}>{children}</UnitsCtx.Provider>;
