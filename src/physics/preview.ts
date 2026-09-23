@@ -7,12 +7,26 @@
 import { marchContour, type Segment } from './contours';
 import { fastMarchDistance } from './fmm';
 import type { PerforatedGrain } from './grains/base';
+import { segmentSetLength } from './geometry';
 
 export interface AreaProfilePoint {
   /** Real-unit regression distance (m). */
   regDist: number;
-  /** Real-unit face (burning cross-section) area (m^2). */
-  faceArea: number;
+  /**
+   * Real-unit length (m) of the 2D cross-section's burning contour at this regression depth —
+   * matches what the original desktop app's "Area Graph" preview tab actually plots, despite its
+   * name: `GrainPreviewWidget._genData` calls `grain.getRegressionData()`, which for every grain
+   * (including analytic ones like BATES, which render a one-off FMM raster just for this preview)
+   * walks contour levels and sums each one's length via `geometry.length()` — never the `faceArea`
+   * array `FmmGrain.generateRegressionMap` computes for the simulation itself.
+   *
+   * This used to be an actual face area here (cross-sectional area of remaining propellant), which
+   * is a fundamentally different curve from the one the original plots — for a BATES grain in
+   * particular, perimeter *increases* with regression (the core grows) while face area *decreases*,
+   * so the two aren't even monotonic in the same direction. Renamed to `perimeter` to match what
+   * it's now computing.
+   */
+  perimeter: number;
 }
 
 export interface GrainPreview {
@@ -51,16 +65,19 @@ export function computeGrainPreview(grain: PerforatedGrain, dim = 160, numContou
   // normalized space) is the same for every PerforatedGrain, so it's reproduced here rather than
   // depending on a method BATES doesn't have.
   const radius = grain.diameter / 2;
+  // pixel-grid units -> real length, same scale factor `fmmGrain.ts`'s `mapToLength` uses for the
+  // simulation's own burning-perimeter table.
+  const toRealLength = grain.diameter / dim;
   const numAreaSamples = 30;
   const areaProfile: AreaProfilePoint[] = [];
   for (let k = 0; k <= numAreaSamples; k++) {
     const level = (maxDist * k) / numAreaSamples;
-    let count = 0;
-    for (let i = 0; i < regressionMap.length; i++) {
-      if (inDomain[i] === 1 && regressionMap[i] > level) count++;
-    }
-    const faceArea = grain.diameter ** 2 * (count / dim ** 2);
-    areaProfile.push({ regDist: level * radius, faceArea });
+    // Full (non-restricted) contour extraction + `segmentSetLength`'s boundary filter, matching
+    // `getRegressionData()` -> `geometry.length()` — see `segmentSetLength`'s comment for why this
+    // is the correct Python code path to mirror here, not `contourPerimeter`'s cell-skipping.
+    const { segments } = marchContour(regressionMap, dim, level, inDomain);
+    const perimeter = toRealLength * segmentSetLength(segments, dim);
+    areaProfile.push({ regDist: level * radius, perimeter });
   }
 
   return { dim, coreMap, inDomain, contours, regressionMap, maxDist, maxRegDist: maxDist * radius, areaProfile };

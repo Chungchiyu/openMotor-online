@@ -73,6 +73,33 @@ export function contourLength(contour: number[][], mapSize: number, tolerance = 
   return total;
 }
 
+/**
+ * Same idea as `contourLength`, but for a contour represented as a flat list of disconnected
+ * `{a, b}` edges (as `marchContour` in contours.ts returns) rather than an ordered polyline —
+ * `find_perimeter(..., including_contours=True)` in the Python original returns ordered vertex
+ * lists, and `geometry.length()` filters by walking pairs of *consecutive* vertices, checking only
+ * the later one of each pair against the boundary. Since our edges aren't chained into an ordered
+ * walk, the natural equivalent is to require *both* endpoints of a given edge to clear the same
+ * boundary check — a symmetric version of the same test, not a different one. Used by the "Area
+ * Graph" preview tab, matching `GrainPreviewWidget._genData`'s use of `geometry.length()` rather
+ * than the burning-perimeter lookup table's own cell-skipping approach (`contourPerimeter` in
+ * contours.ts, which reproduces a *different* Python code path — the Cython fast path used for the
+ * simulation itself, not this preview).
+ */
+export function segmentSetLength(segments: { a: [number, number]; b: [number, number] }[], mapSize: number, tolerance = 3): number {
+  const center = mapSize / 2;
+  const radiusLimit = mapSize / 2 - tolerance;
+  let total = 0;
+  for (const { a, b } of segments) {
+    const radiusA = Math.hypot(a[0] - center, a[1] - center);
+    const radiusB = Math.hypot(b[0] - center, b[1] - center);
+    if (radiusA < radiusLimit && radiusB < radiusLimit) {
+      total += Math.hypot(a[0] - b[0], a[1] - b[1]);
+    }
+  }
+  return total;
+}
+
 /** Removes any points in a contour that fall within `tolerance` of a circle of diameter `mapSize`. */
 export function cleanContour(contour: number[][], mapSize: number, tolerance: number): number[][] {
   const center = mapSize / 2;
