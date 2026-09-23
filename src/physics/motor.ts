@@ -12,6 +12,13 @@ import * as propellantMod from './propellant';
 import { SimulationResult } from './simResult';
 import { SimAlertLevel, SimAlertType, type MotorDesign, type PropellantConfig, type SimAlert } from './types';
 
+/** Hands control back to the browser's event loop — long enough for a paint + input processing
+ * pass, which is what lets a just-rendered progress dialog actually appear and a Cancel click
+ * actually register. */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 export class Motor {
   design: MotorDesign;
   grains: Grain[];
@@ -87,14 +94,16 @@ export class Motor {
     return Math.max(M, 0);
   }
 
-  /** Validates the design and, if it's runnable, does the one-time setup (coremaps, initial
-   * channel values, port/throat check) a simulation needs before its timestep loop can start.
-   * Shared by `runSimulation` and `runSimulationChunked` so there's exactly one place that logic
-   * lives — returns `{ ready: false }` (with `simRes` already carrying the validation alerts) if
-   * the design has errors, matching `runSimulation`'s original early-return. */
-  private prepareSimulation():
-    | { ready: false; simRes: SimulationResult }
-    | { ready: true; simRes: SimulationResult; propellant: PropellantConfig; density: number; motorVolume: number; perGrainReg: number[] } {
+  /**
+   * Validates the design and returns the `SimulationResult` that carries whatever alerts that
+   * turned up (errors AND warnings — e.g. a Star grain's "point length" warning). Always returns
+   * the same instance that setup and the timestep loop go on to fill in, so those warnings aren't
+   * lost; callers decide whether to stop by checking for ERROR-level alerts. Split out from the
+   * rest of setup specifically so `runSimulationChunked` can yield to the event loop *before* the
+   * potentially slow part (`simulationSetup` on an FMM grain can take seconds — see fmmGrain.ts),
+   * instead of that running synchronously before the progress dialog ever gets a chance to paint.
+   */
+  private validateDesign(): SimulationResult {
     const simRes = new SimulationResult(this.design, this.grains);
 
     if (this.grains.length === 0) {
@@ -113,14 +122,21 @@ export class Motor {
       propellantMod.getErrors(this.design.propellant).forEach((alert) => simRes.addAlert(alert));
     }
 
-    if (simRes.getAlertsByLevel(SimAlertLevel.ERROR).length > 0) return { ready: false, simRes };
+    return simRes;
+  }
 
+  /** True if `simRes` (as returned by `validateDesign`) has any errors that make the design
+   * unrunnable. */
+  private hasBlockingErrors(simRes: SimulationResult): boolean {
+    return simRes.getAlertsByLevel(SimAlertLevel.ERROR).length > 0;
+  }
+
+  /** The fast part of setup — initial channel values and the port/throat check — assuming
+   * `grain.simulationSetup()` has already been called for every grain. */
+  private initializeChannels(simRes: SimulationResult): { propellant: PropellantConfig; density: number; motorVolume: number; perGrainReg: number[] } {
     const propellant = this.design.propellant!;
     const density = propellant.density;
     const motorVolume = this.calcTotalVolume();
-
-    this.grains.forEach((grain) => grain.simulationSetup(this.design.config));
-
     const perGrainReg = this.grains.map(() => 0);
 
     simRes.channels.time.push(0);
@@ -152,7 +168,7 @@ export class Motor {
       }
     }
 
-    return { ready: true, simRes, propellant, density, motorVolume, perGrainReg };
+    return { propellant, density, motorVolume, perGrainReg };
   }
 
   /** Runs exactly one timestep, mutating `simRes`'s channels and returning the next regression
@@ -268,10 +284,12 @@ export class Motor {
    * callback's cancel-on-true convention).
    */
   runSimulation(onProgress?: (progress: number) => boolean): SimulationResult {
-    const prep = this.prepareSimulation();
-    if (!prep.ready) return prep.simRes;
-    const { simRes, propellant, density, motorVolume } = prep;
-    let perGrainReg = prep.perGrainReg;
+    const simRes = this.validateDesign();
+    if (this.hasBlockingErrors(simRes)) return simRes;
+
+    this.grains.forEach((grain) => grain.simulationSetup(this.design.config));
+    const { propellant, density, motorVolume, perGrainReg: initialReg } = this.initializeChannels(simRes);
+    let perGrainReg = initialReg;
 
     let iterationGuard = 0;
     const maxIterations = 200000; // Safety valve against runaway loops in the browser
@@ -301,19 +319,44 @@ export class Motor {
    * not just deferred to a `setTimeout` before a single blocking call. `onProgress` receives a 0-1
    * fraction after every yield; `isCancelled` is polled at the same points and, if it returns true,
    * the run stops and this resolves to `null`.
+   *
+   * Yields happen at three points, not just inside the timestep loop:
+   *  1. Immediately, before any work at all — so the dialog is guaranteed to paint at 0% the
+   *     instant Run is clicked, even if everything after this is synchronous.
+   *  2. Between each grain's `simulationSetup()` call — for an FMM grain (Star/Moon Burner) this
+   *     is the actually slow part (it can take seconds at a high map resolution; see fmmGrain.ts),
+   *     far slower than the timestep loop itself, so it needs to be cancellable and keep the
+   *     browser responsive too.
+   *  3. Inside the timestep loop, gated by wall-clock time rather than a fixed iteration count —
+   *     `chunkSize` alone would never trigger for a run with fewer than `chunkSize` total steps
+   *     (common for many BATES motors), silently skipping every yield for the whole run.
    */
   async runSimulationChunked(
     onProgress: (progress: number) => void,
     isCancelled: () => boolean,
     chunkSize = 200,
   ): Promise<SimulationResult | null> {
-    const prep = this.prepareSimulation();
-    if (!prep.ready) return prep.simRes;
-    const { simRes, propellant, density, motorVolume } = prep;
-    let perGrainReg = prep.perGrainReg;
+    onProgress(0);
+    await yieldToEventLoop();
+    if (isCancelled()) return null;
+
+    const simRes = this.validateDesign();
+    if (this.hasBlockingErrors(simRes)) return simRes;
+
+    for (const grain of this.grains) {
+      grain.simulationSetup(this.design.config);
+      // eslint-disable-next-line no-await-in-loop
+      await yieldToEventLoop();
+      if (isCancelled()) return null;
+    }
+
+    const { propellant, density, motorVolume, perGrainReg: initialReg } = this.initializeChannels(simRes);
+    let perGrainReg = initialReg;
 
     let iterationGuard = 0;
     const maxIterations = 200000;
+    const maxMsBetweenYields = 40;
+    let lastYield = Date.now();
 
     while (simRes.shouldContinueSim(this.design.config.burnoutThrustThres)) {
       if (++iterationGuard > maxIterations) {
@@ -323,12 +366,13 @@ export class Motor {
 
       perGrainReg = this.stepOnce(simRes, perGrainReg, propellant, density, motorVolume);
 
-      if (iterationGuard % chunkSize === 0) {
+      if (iterationGuard % chunkSize === 0 || Date.now() - lastYield >= maxMsBetweenYields) {
         const progress = Math.max(...this.grains.map((g, gid) => g.getWebLeft(perGrainReg[gid]) / g.getWebLeft(0)));
         onProgress(1 - progress);
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await yieldToEventLoop();
         if (isCancelled()) return null;
+        lastYield = Date.now();
       }
     }
 

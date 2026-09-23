@@ -29,9 +29,12 @@ the physics engine is a from-scratch TypeScript port of openMotor's Python `moto
   and RASP `.eng` export of simulation results, BurnSim 3.0 (`.bsx`) import/export (BATES and Moon
   Burner only — Star Grain has no BurnSim equivalent in the original either), and PNG export of the
   results graph. No `.ric`/YAML file compatibility or DXF import yet.
-- **Simulation UX:** a real progress bar with a working Cancel button (the simulation runs in
-  yielding chunks, not one blocking call), and an alerts dialog that pops up automatically when a
-  run produces warnings.
+- **Simulation UX:** a real progress bar with a working Cancel button — the run yields to the
+  browser before any work starts (so the dialog is guaranteed to paint immediately, even for a
+  design whose FMM grain setup alone can take seconds), yields between each grain's setup too, and
+  yields the timestep loop on a wall-clock timer rather than a fixed iteration count (so short runs
+  still get a chance to repaint/cancel instead of completing in one blocking call) — plus an alerts
+  dialog that pops up automatically when a run produces warnings.
 
 See `src/physics/` for the engine and `src/ui/` for the interface. The physics port is
 regression-tested against golden values produced by running the actual Python `motorlib` — both on

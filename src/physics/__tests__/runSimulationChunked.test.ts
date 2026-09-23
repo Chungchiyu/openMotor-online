@@ -56,4 +56,22 @@ describe('runSimulationChunked matches runSimulation exactly', () => {
     );
     expect(result).toBeNull();
   });
+
+  it('cancelling immediately skips the (potentially seconds-long) FMM grain setup entirely', async () => {
+    // Regression test for the progress-dialog bug: `prepareSimulation` used to run every grain's
+    // `simulationSetup()` synchronously before the very first `isCancelled()` check, so clicking
+    // Cancel while an expensive Star/Moon Burner setup was in flight did nothing until it finished
+    // on its own. `runSimulationChunked` now checks `isCancelled` before touching any grain, so a
+    // cancel that arrives immediately should return near-instantly regardless of grain type.
+    const design = refStar.motorDict as unknown as MotorDesign;
+    const motor = new Motor(design);
+    const start = Date.now();
+    const result = await motor.runSimulationChunked(
+      () => {},
+      () => true, // already cancelled before the first check
+    );
+    const elapsedMs = Date.now() - start;
+    expect(result).toBeNull();
+    expect(elapsedMs).toBeLessThan(500); // the full Star Grain setup+run takes seconds, not ms
+  });
 });
