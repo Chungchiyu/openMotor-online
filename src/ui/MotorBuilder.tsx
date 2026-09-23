@@ -18,6 +18,7 @@ interface Props {
 export function MotorBuilder({ design, selection, onSelectionChange, onDesignChange }: Props) {
   const [newGrainType, setNewGrainType] = useState<GrainConfig['type']>('BATES');
   const [highlightedGrainIndex, setHighlightedGrainIndex] = useState<number | null>(null);
+  const [highlightedKind, setHighlightedKind] = useState<'nozzle' | 'config' | null>(null);
   const [showPropellantEditor, setShowPropellantEditor] = useState(false);
   const { library } = usePropellantLibrary();
 
@@ -58,7 +59,10 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
 
   const deleteGrain = (index: number) => {
     onDesignChange((d) => ({ ...d, grains: d.grains.filter((_, i) => i !== index) }));
-    setHighlightedGrainIndex(null);
+    // Keep the highlight on whichever grain took the deleted one's place (or the new last grain,
+    // if the last one was deleted) instead of un-highlighting everything.
+    const remainingCount = design.grains.length - 1;
+    setHighlightedGrainIndex(remainingCount > 0 ? Math.min(index, remainingCount - 1) : null);
     onSelectionChange(null);
   };
 
@@ -67,6 +71,7 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
   const closeEditor = () => {
     onSelectionChange(null);
     setHighlightedGrainIndex(null);
+    setHighlightedKind(null);
   };
 
   return (
@@ -113,18 +118,32 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
         <CollectionList
           grains={design.grains}
           highlightedGrainIndex={highlightedGrainIndex}
-          selection={selection}
-          onHighlightGrain={setHighlightedGrainIndex}
+          highlightedKind={highlightedKind}
+          onHighlightGrain={(i) => {
+            setHighlightedKind(null);
+            setHighlightedGrainIndex(i);
+          }}
+          onHighlightNozzle={() => {
+            setHighlightedGrainIndex(null);
+            setHighlightedKind('nozzle');
+          }}
+          onHighlightConfig={() => {
+            setHighlightedGrainIndex(null);
+            setHighlightedKind('config');
+          }}
           onEditGrain={(i) => {
+            setHighlightedKind(null);
             setHighlightedGrainIndex(i);
             onSelectionChange({ kind: 'grain', index: i });
           }}
           onEditNozzle={() => {
             setHighlightedGrainIndex(null);
+            setHighlightedKind('nozzle');
             onSelectionChange({ kind: 'nozzle' });
           }}
           onEditConfig={() => {
             setHighlightedGrainIndex(null);
+            setHighlightedKind('config');
             onSelectionChange({ kind: 'config' });
           }}
           onMoveUp={(i) => moveGrain(i, -1)}

@@ -56,9 +56,13 @@ export function PropellantEditorDialog({ onClose }: Props) {
 
   const handleDelete = () => {
     if (!selectedName || library.length <= 1) return;
+    const index = library.findIndex((p) => p.name === selectedName);
     deletePropellant(selectedName);
     const remaining = library.filter((p) => p.name !== selectedName);
-    setSelectedName(remaining[0]?.name ?? null);
+    // Keep focus on whichever propellant took the deleted one's place in the list (or the new
+    // last item, if the last one was deleted) rather than always jumping back to the first entry.
+    const nextIndex = Math.min(index, remaining.length - 1);
+    setSelectedName(remaining[nextIndex]?.name ?? null);
   };
 
   const handleApply = () => {

@@ -454,7 +454,10 @@ button.active {
 /* --- Property editor / forms --- */
 
 .property-editor {
-  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .property-editor.empty {
@@ -462,6 +465,15 @@ button.active {
   opacity: 0.7;
   padding: 24px 0;
   text-align: center;
+}
+
+/* The scrollable part of the form, so the Apply/Cancel row below it (a sibling, not a child of
+ * this element) stays pinned in view instead of scrolling off with a tall form like Config's. */
+.property-editor-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
 }
 
 .property-editor h3 {
@@ -489,6 +501,7 @@ button.active {
   display: flex;
   gap: 8px;
   margin-top: 8px;
+  flex: 0 0 auto;
 }
 
 .apply-cancel-row button {
@@ -619,20 +632,14 @@ button.active {
 
 .motor-builder-editor {
   flex: 1 1 auto;
-  overflow-y: auto;
   min-height: 0;
-  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
 }
 
 .motor-builder-list {
   flex: 0 0 auto;
   padding-top: 8px;
-}
-
-@media (max-width: 900px) {
-  .motor-builder-editor {
-    overflow-y: visible;
-  }
 }
 
 /* --- Propellant row / collection list --- */

@@ -251,15 +251,17 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
   }, [builtGrain]);
 
   if (!selection) {
-    return <div className="property-editor empty">Double-click a grain, or click the nozzle or config, to edit its properties.</div>;
+    return <div className="property-editor empty">Double-click a grain, nozzle, or config row to edit its properties.</div>;
   }
 
   if (selection.kind === 'nozzle') {
     return (
       <FormValidityProvider>
         <div className="property-editor">
-          <h3>Nozzle</h3>
-          <NozzleForm nozzle={draftNozzle} onChange={setDraftNozzle} />
+          <div className="property-editor-scroll">
+            <h3>Nozzle</h3>
+            <NozzleForm nozzle={draftNozzle} onChange={setDraftNozzle} />
+          </div>
           <ApplyCancelRow
             onApply={() => {
               onApplyNozzle(draftNozzle);
@@ -276,13 +278,15 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
     return (
       <FormValidityProvider>
         <div className="property-editor">
-          <h3>Config</h3>
-          <div className="propellant-preset-row">
-            <button title="Reset all values to openMotor's built-in defaults" onClick={() => setDraftConfig(defaultMotorConfig())}>
-              Reset to Default
-            </button>
+          <div className="property-editor-scroll">
+            <h3>Config</h3>
+            <div className="propellant-preset-row">
+              <button title="Reset all values to openMotor's built-in defaults" onClick={() => setDraftConfig(defaultMotorConfig())}>
+                Reset to Default
+              </button>
+            </div>
+            <ConfigForm config={draftConfig} onChange={setDraftConfig} />
           </div>
-          <ConfigForm config={draftConfig} onChange={setDraftConfig} />
           <ApplyCancelRow
             onApply={() => {
               onApplyConfig(draftConfig);
@@ -299,31 +303,33 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
     return (
       <FormValidityProvider>
         <div className="property-editor">
-          <div className="property-editor-columns">
-            <div className="property-editor-form">
-              <h3>{draftGrain.type}</h3>
-              {draftGrain.type === 'BATES' && (
-                <BatesForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'BATES', properties })} />
-              )}
-              {draftGrain.type === 'Star Grain' && (
-                <StarForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Star Grain', properties })} />
-              )}
-              {draftGrain.type === 'Moon Burner' && (
-                <MoonBurnerForm
-                  properties={draftGrain.properties}
-                  onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
+          <div className="property-editor-scroll">
+            <div className="property-editor-columns">
+              <div className="property-editor-form">
+                <h3>{draftGrain.type}</h3>
+                {draftGrain.type === 'BATES' && (
+                  <BatesForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'BATES', properties })} />
+                )}
+                {draftGrain.type === 'Star Grain' && (
+                  <StarForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Star Grain', properties })} />
+                )}
+                {draftGrain.type === 'Moon Burner' && (
+                  <MoonBurnerForm
+                    properties={draftGrain.properties}
+                    onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
+                  />
+                )}
+                <ApplyCancelRow
+                  onApply={() => {
+                    onApplyGrain(selection.index, draftGrain);
+                    onClose();
+                  }}
+                  onCancel={onClose}
                 />
-              )}
-              <ApplyCancelRow
-                onApply={() => {
-                  onApplyGrain(selection.index, draftGrain);
-                  onClose();
-                }}
-                onCancel={onClose}
-              />
-            </div>
-            <div className="property-editor-preview">
-              <GrainPreviewPanel preview={preview} grain={builtGrain} />
+              </div>
+              <div className="property-editor-preview">
+                <GrainPreviewPanel preview={preview} grain={builtGrain} />
+              </div>
             </div>
           </div>
         </div>

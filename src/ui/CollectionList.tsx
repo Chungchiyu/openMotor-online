@@ -1,15 +1,16 @@
 import type { GrainConfig } from '../physics/types';
-import type { Selection } from './MotorBuilder';
 
 interface Props {
   grains: GrainConfig[];
   /** The row highlighted for Up/Down/Copy/Delete — independent of which editor is currently open
    * (see the double-click note below). */
   highlightedGrainIndex: number | null;
-  /** Which editor is currently open, purely to also highlight the Nozzle/Config rows when theirs
-   * is the one open. */
-  selection: Selection;
+  /** Which of the singleton rows (Nozzle/Config) is highlighted — the same role
+   * `highlightedGrainIndex` plays for grain rows. */
+  highlightedKind: 'nozzle' | 'config' | null;
   onHighlightGrain: (index: number) => void;
+  onHighlightNozzle: () => void;
+  onHighlightConfig: () => void;
   onEditGrain: (index: number) => void;
   onEditNozzle: () => void;
   onEditConfig: () => void;
@@ -29,18 +30,19 @@ function describeGrain(g: GrainConfig): string {
 
 /**
  * The unified list of everything the property editor above can edit: each grain, the nozzle, and
- * the simulation config — mirroring the original desktop app's single "collection" list. A grain
+ * the simulation config — mirroring the original desktop app's single "collection" list. Every
  * row is a two-step interaction, also matching the original (which has separate Edit/Copy/Delete
  * buttons next to the list rather than opening on a single click): a single click just selects/
- * highlights the row (so Up/Down/Copy/Delete know what to act on); double-click opens it in the
- * property editor above. Nozzle and Config are singletons with no such actions, so a single click
- * opens them directly.
+ * highlights the row (so Up/Down/Copy/Delete know what to act on for grains); double-click opens
+ * it in the property editor above.
  */
 export function CollectionList({
   grains,
   highlightedGrainIndex,
-  selection,
+  highlightedKind,
   onHighlightGrain,
+  onHighlightNozzle,
+  onHighlightConfig,
   onEditGrain,
   onEditNozzle,
   onEditConfig,
@@ -79,12 +81,12 @@ export function CollectionList({
               </td>
             </tr>
           )}
-          <tr className={selection?.kind === 'nozzle' ? 'selected' : ''} onClick={onEditNozzle}>
+          <tr className={highlightedKind === 'nozzle' ? 'selected' : ''} onClick={onHighlightNozzle} onDoubleClick={onEditNozzle}>
             <td>—</td>
             <td>Nozzle</td>
             <td>throat/exit, angles, losses</td>
           </tr>
-          <tr className={selection?.kind === 'config' ? 'selected' : ''} onClick={onEditConfig}>
+          <tr className={highlightedKind === 'config' ? 'selected' : ''} onClick={onHighlightConfig} onDoubleClick={onEditConfig}>
             <td>—</td>
             <td>Config</td>
             <td>limits &amp; simulation settings</td>
