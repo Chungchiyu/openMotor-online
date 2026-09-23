@@ -13,6 +13,7 @@
 import { yieldToEventLoop } from '../asyncUtils';
 import { contourPerimeter } from '../contours';
 import { fastMarchDistance } from '../fmm';
+import { savgolFilter } from '../numerics';
 import { PerforatedGrain } from './base';
 
 interface Lookup {
@@ -171,7 +172,7 @@ export abstract class FmmGrain extends PerforatedGrain {
     // the map turns into O(mapDim^2 + numLevels) instead of O(numLevels * mapDim^2) — the naive
     // "recount from scratch per level" cost that made a finer table for perimeter alone affordable
     // but not for both.
-    const faceAreaValues = new Float64Array(numLevels);
+    const rawFaceAreaValues = new Float64Array(numLevels);
     {
       const bins = new Float64Array(numLevels + 1);
       for (let j = 0; j < regressionMap.length; j++) {
@@ -190,10 +191,13 @@ export abstract class FmmGrain extends PerforatedGrain {
       let suffix = 0;
       for (let i = numLevels; i >= 0; i--) suffix += bins[i];
       for (let i = 0; i < numLevels; i++) {
-        faceAreaValues[i] = this.mapToArea(suffix);
+        rawFaceAreaValues[i] = this.mapToArea(suffix);
         suffix -= bins[i];
       }
     }
+    // Matches the Python original, which runs the raw per-level counts through
+    // `savgol_filter(faceArea, 31, 5)` before building its interpolation function.
+    const faceAreaValues = savgolFilter(rawFaceAreaValues, 31, 5);
 
     return { regressionMap, levels, faceAreaValues };
   }

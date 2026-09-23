@@ -6,10 +6,13 @@
  *
  * BATES is fully analytic, so it's held to a tight tolerance. The star grain depends on our
  * hand-rolled fast marching method + marching squares standing in for skfmm + a Cython contour
- * routine (see fmm.ts and contours.ts) — once that solver matched skfmm's order of accuracy and
- * the burning-perimeter/face-area lookup tables matched its sampling resolution, the star grain's
- * measured error against this fixture dropped to comfortably under 0.1%, so it's held to a tight
- * tolerance too now (just not quite as tight as the fully analytic BATES case).
+ * routine (see fmm.ts and contours.ts) — once that solver matched skfmm's order of accuracy, the
+ * burning-perimeter/face-area lookup tables matched its sampling resolution, and the face-area
+ * table got the same Savitzky-Golay smoothing the Python original applies before interpolating it
+ * (see numerics.ts's savgolFilter and fmmGrain.ts), the star grain's measured error against this
+ * fixture dropped to comfortably under 0.01%. It's still not held to BATES's tolerance because the
+ * remaining gap is structural: this port samples burning perimeter on a table and interpolates,
+ * where Python recomputes it exactly via marching squares at every timestep.
  */
 import { describe, expect, it } from 'vitest';
 import type { MotorDesign } from '../types';
@@ -56,10 +59,10 @@ describe('Star (FMM) motor matches Python reference (tight tolerance)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('matches burn time, average force, ISP and propellant mass within 0.5%', () => {
-    expect(relClose(result.getBurnTime(), refStar.burnTime, 0.005)).toBe(true);
-    expect(relClose(result.getAverageForce(), refStar.averageForce, 0.005)).toBe(true);
-    expect(relClose(result.getISP(), refStar.isp, 0.005)).toBe(true);
-    expect(relClose(result.getPropellantMass(), refStar.propellantMass, 0.005)).toBe(true);
+  it('matches burn time, average force, ISP and propellant mass within 0.05%', () => {
+    expect(relClose(result.getBurnTime(), refStar.burnTime, 0.0005)).toBe(true);
+    expect(relClose(result.getAverageForce(), refStar.averageForce, 0.0005)).toBe(true);
+    expect(relClose(result.getISP(), refStar.isp, 0.0005)).toBe(true);
+    expect(relClose(result.getPropellantMass(), refStar.propellantMass, 0.0005)).toBe(true);
   });
 });
