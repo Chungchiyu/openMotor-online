@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { PerforatedGrain } from '../physics/grains/base';
+import { cloneGrain } from '../physics/grains';
 import { computeGrainPreview, type GrainPreview } from '../physics/preview';
 import type { SimulationResult } from '../physics/simResult';
 import { GrainPreviewCanvas } from './GrainPreviewCanvas';
@@ -23,7 +24,12 @@ export function TimeScrubberPanel({ result }: Props) {
     () =>
       result.grains.map((g) => {
         try {
-          return computeGrainPreview(g as PerforatedGrain);
+          // Preview generation mutates an FmmGrain's internal geometry cache (mapDim, coreMap, the
+          // face-area/perimeter lookup tables) down to a small preview resolution. Doing that
+          // directly on `g` — a grain the live SimulationResult still owns — would corrupt the
+          // tables the simulation relies on (getPortArea -> getFaceArea would then throw once
+          // they're gone); cloning first keeps the preview's mutation off to the side.
+          return computeGrainPreview(cloneGrain(g) as PerforatedGrain);
         } catch {
           return null;
         }
@@ -60,9 +66,7 @@ export function TimeScrubberPanel({ result }: Props) {
         </thead>
         <tbody>
           {result.grains.map((grain, gid) => {
-            const wallWeb = (grain as PerforatedGrain).wallWeb ?? 0;
             const regression = result.multiChannels.regression[stepIndex]?.[gid] ?? 0;
-            const highlightFraction = wallWeb === 0 ? 0 : Math.min(regression / wallWeb, 1);
             const mass = result.multiChannels.mass[stepIndex]?.[gid];
             const massFlow = result.multiChannels.massFlow[stepIndex]?.[gid];
             const massFlux = result.multiChannels.massFlux[stepIndex]?.[gid];
@@ -71,7 +75,13 @@ export function TimeScrubberPanel({ result }: Props) {
               <tr key={gid}>
                 <td>{gid + 1}</td>
                 <td>
-                  <GrainPreviewCanvas preview={previews[gid]} highlightFraction={highlightFraction} size={72} />
+                  <GrainPreviewCanvas
+                    preview={previews[gid]}
+                    regDist={regression}
+                    diameter={(grain as PerforatedGrain).diameter}
+                    showContours={false}
+                    size={72}
+                  />
                 </td>
                 <td>{mass !== undefined ? `${(mass * 1000).toFixed(1)} g` : '-'}</td>
                 <td>{massFlow !== undefined ? `${massFlow.toFixed(3)} kg/s` : '-'}</td>

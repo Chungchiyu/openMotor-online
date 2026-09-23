@@ -66,8 +66,30 @@ export function computeGrainPreview(grain: PerforatedGrain, dim = 160, numContou
   return { dim, coreMap, inDomain, contours, regressionMap, maxDist, maxRegDist: maxDist * radius, areaProfile };
 }
 
-/** Draws one additional contour at `fraction` (0-1) of the preview's max regression depth. */
-export function contourAtFraction(preview: GrainPreview, fraction: number): Segment[] {
-  const level = preview.maxDist * Math.min(Math.max(fraction, 0), 1);
+/**
+ * Real-unit regression distance (m) -> this preview's own normalized regression-map units, clamped
+ * to its valid range.
+ *
+ * Uses the same direct diameter-based conversion the Python original uses (`mapDist = regDist /
+ * (0.5 * diameter)`, see `resultsWidget.py`'s `updateGrainTab`) rather than re-deriving it from a
+ * "fraction of wallWeb": that indirection multiplied a fraction computed against the real
+ * simulation's `wallWeb` by this preview's own independently-computed (lower-resolution) `maxDist`
+ * — two different approximations of the same quantity — and left the highlighted contour visibly
+ * out of position, worst right near burnout.
+ */
+export function regDistToLevel(preview: GrainPreview, regDist: number, diameter: number): number {
+  return Math.min(Math.max(regDist / (0.5 * diameter), 0), preview.maxDist);
+}
+
+/**
+ * Draws the contour at a given normalized level (see `regDistToLevel`).
+ *
+ * Note that at `level === preview.maxDist` exactly, no contour can exist — marching squares needs
+ * some cell corners above the level and some at or below it, and nothing in the field is above its
+ * own true maximum. Callers wanting a "how much is burned" indicator should pair this with an
+ * erosion-based fill (thresholding `preview.regressionMap` directly, as `GrainPreviewCanvas` does)
+ * rather than relying on this line alone all the way to full burnout.
+ */
+export function contourAtLevel(preview: GrainPreview, level: number): Segment[] {
   return marchContour(preview.regressionMap, preview.dim, level, preview.inDomain).segments;
 }

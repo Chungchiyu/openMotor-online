@@ -32,6 +32,20 @@ export function grainToConfig(grain: Grain): GrainConfig {
   throw new Error('Unknown grain instance');
 }
 
+/**
+ * Rebuilds a grain from its own properties into a fresh instance.
+ *
+ * Used before any call that mutates a grain's internal geometry cache (e.g. `getPreviewRaster`,
+ * which resets `FmmGrain`'s `mapDim`/`coreMap`/lookup tables to a small preview resolution) when the
+ * grain in hand is one still owned by a live `SimulationResult` — calling such a method directly on
+ * that shared instance corrupts the tables the simulation itself relies on (see `getPortArea` ->
+ * `getFaceArea`, which throws once they're gone). A cheap, independent copy sidesteps that instead
+ * of having to make every geometry-cache method defensive.
+ */
+export function cloneGrain(grain: Grain): Grain {
+  return buildGrain(grainToConfig(grain));
+}
+
 export function defaultGrainConfig(type: GrainConfig['type']): GrainConfig {
   switch (type) {
     case 'BATES':
