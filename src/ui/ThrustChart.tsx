@@ -17,6 +17,8 @@ import {
   type SimulationResult,
   type SingleValueChannel,
 } from '../physics/simResult';
+import { convert } from '../physics/units';
+import { useUnits } from './UnitsContext';
 
 ChartJS.register(LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -38,28 +40,39 @@ interface Props {
   selectedGrains: number[];
 }
 
-function getXSeries(result: SimulationResult, xChannel: XChannelKey, selectedGrains: number[]): number[] {
-  if (xChannel === 'time') return result.channels.time;
+const xChannelUnit: Record<XChannelKey, string> = { time: 's', regression: 'm', web: 'm' };
+
+function getXSeries(result: SimulationResult, xChannel: XChannelKey, selectedGrains: number[], toUnit: string): number[] {
+  const fromUnit = xChannelUnit[xChannel];
+  if (xChannel === 'time') return result.channels.time.map((v) => convert(v, fromUnit, toUnit));
   const grainIdx = selectedGrains[0] ?? 0;
-  return result.multiChannels[xChannel].map((frame) => frame[grainIdx] ?? 0);
+  return result.multiChannels[xChannel].map((frame) => convert(frame[grainIdx] ?? 0, fromUnit, toUnit));
 }
 
 export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Props) {
+  // `plotData` in the original (graphWidget.py) converts every channel — x axis and each y
+  // channel — to the user's preferred unit for that channel's quantity type, not the canonical
+  // (SI) unit the simulation stores it in; this chart used to always plot raw SI values.
+  const { unitFor } = useUnits();
+  const xUnit = unitFor(xChannelUnit[xChannel]);
+
   const data = useMemo(() => {
     if (!result) return { datasets: [] as object[] };
-    const xSeries = getXSeries(result, xChannel, selectedGrains);
+    const xSeries = getXSeries(result, xChannel, selectedGrains, xUnit);
     const datasets: object[] = [];
     let colorIdx = 0;
 
     for (const ch of yChannels) {
       if (isMultiValue(ch)) {
+        const meta = multiValueChannelMeta[ch];
+        const yUnit = unitFor(meta.unit);
         const grains = selectedGrains.length > 0 ? selectedGrains : [0];
         for (const g of grains) {
           const color = palette[colorIdx % palette.length];
           colorIdx++;
           datasets.push({
-            label: `${multiValueChannelMeta[ch].label} (G${g + 1})`,
-            data: xSeries.map((x, i) => ({ x, y: result.multiChannels[ch][i]?.[g] ?? 0 })),
+            label: `${meta.label} (G${g + 1})`,
+            data: xSeries.map((x, i) => ({ x, y: convert(result.multiChannels[ch][i]?.[g] ?? 0, meta.unit, yUnit) })),
             borderColor: color,
             backgroundColor: color,
             pointRadius: 0,
@@ -68,11 +81,13 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
           });
         }
       } else {
+        const meta = singleValueChannelMeta[ch];
+        const yUnit = unitFor(meta.unit);
         const color = palette[colorIdx % palette.length];
         colorIdx++;
         datasets.push({
-          label: singleValueChannelMeta[ch].label,
-          data: xSeries.map((x, i) => ({ x, y: result.channels[ch][i] })),
+          label: meta.label,
+          data: xSeries.map((x, i) => ({ x, y: convert(result.channels[ch][i], meta.unit, yUnit) })),
           borderColor: color,
           backgroundColor: color,
           pointRadius: 0,
@@ -83,14 +98,14 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
     }
 
     return { datasets };
-  }, [result, xChannel, yChannels, selectedGrains]);
+  }, [result, xChannel, yChannels, selectedGrains, xUnit, unitFor]);
 
   const options: ChartOptions<'line'> = useMemo(() => {
-    const xLabel = xChannel === 'time' ? 'Time (s)' : multiValueChannelMeta[xChannel].label;
+    const xChannelLabel = xChannel === 'time' ? 'Time' : multiValueChannelMeta[xChannel].label;
     const scales: ChartOptions<'line'>['scales'] = {
       x: {
         type: 'linear',
-        title: { display: true, text: xLabel },
+        title: { display: true, text: xUnit ? `${xChannelLabel} (${xUnit})` : xChannelLabel },
       },
     };
     const seenAxes = new Set<string>();
@@ -98,11 +113,12 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
       if (seenAxes.has(ch)) return;
       seenAxes.add(ch);
       const meta = isMultiValue(ch) ? multiValueChannelMeta[ch] : singleValueChannelMeta[ch];
+      const yUnit = unitFor(meta.unit);
       const position = seenAxes.size === 1 ? 'left' : 'right';
       scales[ch] = {
         type: 'linear',
         position,
-        title: { display: true, text: meta.unit ? `${meta.label} (${meta.unit})` : meta.label },
+        title: { display: true, text: yUnit ? `${meta.label} (${yUnit})` : meta.label },
         grid: { drawOnChartArea: position === 'left' },
       };
     });
@@ -113,7 +129,7 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
       scales,
       plugins: { legend: { position: 'top' } },
     };
-  }, [xChannel, yChannels]);
+  }, [xChannel, xUnit, yChannels, unitFor]);
 
   if (!result) {
     return <div className="chart-placeholder">Run the simulation to see results.</div>;

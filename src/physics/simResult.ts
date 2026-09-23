@@ -171,8 +171,31 @@ export class SimulationResult {
     return `${this.getImpulse().toFixed(0)}${this.getDesignation()}`;
   }
 
+  /** Returns how far through its impulse class (0-1) the motor's total impulse falls — e.g. a
+   * motor right at the bottom of the "H" range returns ~0, one right at the top (just under the
+   * "I" range) returns ~1. Paired with `getDesignation()` in the original's Motor Statistics panel
+   * ("H128 (45%)" — see `mainWindow.py`'s `updateMotorStats`), which this app's `SummaryStats` had
+   * been showing as `getFullDesignation()` instead (a different string meant for the graph title —
+   * see `graphWidget.py`'s `saveImage` — not the stats panel). */
+  getImpulseClassPercentage(): number {
+    const impulse = this.getImpulse();
+    if (impulse < 1.25) return 0;
+    const minClassImpulse = 1.25 * 2 ** Math.floor(Math.log2(impulse / 1.25));
+    return (impulse - minClassImpulse) / minClassImpulse;
+  }
+
   getPeakMassFlux(): number {
     return arrayMax(this.multiChannels.massFlux.map((frame) => arrayMax(frame)));
+  }
+
+  /** Returns the (0-based) grain index where the peak mass flux occurred. */
+  getPeakMassFluxLocation(): number | null {
+    const value = this.getPeakMassFlux();
+    for (const frame of this.multiChannels.massFlux) {
+      const idx = frame.indexOf(value);
+      if (idx !== -1) return idx;
+    }
+    return null;
   }
 
   getPeakMachNumber(): number {

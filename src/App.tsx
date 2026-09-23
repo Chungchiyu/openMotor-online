@@ -126,7 +126,26 @@ function AppInner() {
       setError('Open the Graph tab (with a completed simulation) to export it as an image.');
       return;
     }
-    const url = canvas.toDataURL('image/png');
+    // The original only sets the plot's title (its full designation, e.g. "1297H128") when SAVING
+    // the graph, not on the always-visible on-screen chart (see `graphWidget.py`'s `saveImage` vs
+    // `showData`) — reproduced here by drawing it onto a copy of the canvas at export time only.
+    const titled = document.createElement('canvas');
+    const titleHeight = 32;
+    titled.width = canvas.width;
+    titled.height = canvas.height + titleHeight * (window.devicePixelRatio || 1);
+    const ctx = titled.getContext('2d');
+    if (ctx && result) {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#1a1a1a';
+      ctx.fillRect(0, 0, titled.width, titled.height);
+      ctx.fillStyle = getComputedStyle(document.body).color || '#eee';
+      ctx.font = `${16 * dpr}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(result.getFullDesignation(), titled.width / 2, (titleHeight * dpr) / 2);
+      ctx.drawImage(canvas, 0, titleHeight * dpr);
+    }
+    const url = (ctx ? titled : canvas).toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
     a.download = 'motor-graph.png';
