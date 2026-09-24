@@ -212,6 +212,7 @@ export class SimulationResult {
     const lastGrain = this.grains[this.grains.length - 1];
     if (!lastGrain) return null;
     const aftPort = lastGrain.getPortArea(0);
+    if (aftPort === null) return null;
     return aftPort / geometry.circleArea(this.design.nozzle.throat);
   }
 

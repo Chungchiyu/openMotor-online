@@ -6,10 +6,9 @@ the physics engine is a from-scratch TypeScript port of openMotor's Python `moto
 
 ## Status
 
-- **Grain shapes:** BATES (analytic), Star Grain and Moon Burner (both via a hand-rolled fast
-  marching method + marching squares, standing in for `scikit-fmm` and the project's Cython
-  contour routine). The other 8 shapes (Finocyl, Rod & Tube, Conical, End Burner, C/D/X-core,
-  Custom/DXF) aren't ported yet.
+- **Grain shapes:** BATES, Rod & Tube, Conical and End Burner (analytic); Star Grain, Moon Burner,
+  Finocyl, C/D/X-core (all via a hand-rolled fast marching method + marching squares, standing in
+  for `scikit-fmm` and the project's Cython contour routine). Custom/DXF import isn't ported yet.
 - **Propellant:** a persistent library (localStorage, seeded from all 20 of openMotor's built-in
   presets, mechanically generated from its `uilib/defaults.py`) managed through its own Propellant
   Editor dialog — add/delete/edit entries, multi-tab burn rate tables, Reset to Default, and a

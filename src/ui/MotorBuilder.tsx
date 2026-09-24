@@ -157,6 +157,13 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
             <option value="BATES">BATES</option>
             <option value="Star Grain">Star Grain</option>
             <option value="Moon Burner">Moon Burner</option>
+            <option value="D Grain">D Grain</option>
+            <option value="X Core">X Core</option>
+            <option value="C Grain">C Grain</option>
+            <option value="Finocyl">Finocyl</option>
+            <option value="Rod and Tube">Rod and Tube</option>
+            <option value="End Burner">End Burner</option>
+            <option value="Conical">Conical</option>
           </select>
           <button onClick={addGrain}>+ Add Grain</button>
         </div>

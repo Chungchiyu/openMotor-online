@@ -102,3 +102,18 @@ export function SelectField<T extends string>({ label, value, options, onChange 
     </label>
   );
 }
+
+interface CheckboxFieldProps {
+  label: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}
+
+export function CheckboxField({ label, value, onChange }: CheckboxFieldProps) {
+  return (
+    <label className="field">
+      <span className="field-label">{label}</span>
+      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
+    </label>
+  );
+}

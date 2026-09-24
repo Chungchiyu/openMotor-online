@@ -25,6 +25,15 @@ function describeGrain(g: GrainConfig): string {
   const len = `L${(g.properties.length * 1000).toFixed(0)}mm`;
   if (g.type === 'BATES') return `${dia} ${len}`;
   if (g.type === 'Star Grain') return `${g.properties.numPoints}-point ${dia} ${len}`;
+  if (g.type === 'D Grain') return `${dia} ${len}, slot offset ${(g.properties.slotOffset * 1000).toFixed(1)}mm`;
+  if (g.type === 'X Core') return `${dia} ${len}, slot ${(g.properties.slotWidth * 1000).toFixed(1)}x${(g.properties.slotLength * 1000).toFixed(1)}mm`;
+  if (g.type === 'C Grain') return `${dia} ${len}, slot width ${(g.properties.slotWidth * 1000).toFixed(1)}mm`;
+  if (g.type === 'Finocyl') return `${g.properties.numFins}-fin ${dia} ${len}`;
+  if (g.type === 'Rod and Tube') return `${dia} ${len}, rod ${(g.properties.rodDiameter * 1000).toFixed(1)}mm`;
+  if (g.type === 'End Burner') return `${dia} ${len}`;
+  if (g.type === 'Conical') {
+    return `${dia} ${len}, core ${(g.properties.forwardCoreDiameter * 1000).toFixed(1)}-${(g.properties.aftCoreDiameter * 1000).toFixed(1)}mm`;
+  }
   return `${dia} ${len}, offset ${(g.properties.coreOffset * 1000).toFixed(1)}mm`;
 }
 

@@ -5,18 +5,25 @@ import { computeGrainPreview } from '../physics/preview';
 import {
   defaultMotorConfig,
   type BatesGrainProperties,
+  type CGrainProperties,
+  type ConicalGrainProperties,
+  type DGrainProperties,
+  type EndBurnerProperties,
+  type FinocylProperties,
   type GrainConfig,
   type InhibitedEnds,
   type MoonBurnerProperties,
   type MotorConfigProperties,
   type NozzleConfig,
+  type RodTubeGrainProperties,
   type StarGrainProperties,
+  type XCoreProperties,
 } from '../physics/types';
 import type { Selection } from './MotorBuilder';
 import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { GrainPreviewPanel } from './GrainPreviewPanel';
 import { NozzlePreview } from './NozzlePreview';
-import { NumberField, SelectField } from './fields';
+import { CheckboxField, NumberField, SelectField } from './fields';
 
 const inhibitedOptions: { value: InhibitedEnds; label: string }[] = [
   { value: 'Neither', label: 'Neither' },
@@ -96,6 +103,190 @@ function MoonBurnerForm({ properties, onChange }: { properties: MoonBurnerProper
         unitKind="m"
         value={properties.coreOffset}
         onChange={(v) => onChange({ ...properties, coreOffset: v })}
+      />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+    </>
+  );
+}
+
+function DGrainForm({ properties, onChange }: { properties: DGrainProperties; onChange: (p: DGrainProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField
+        label="Slot Offset"
+        unitKind="m"
+        value={properties.slotOffset}
+        onChange={(v) => onChange({ ...properties, slotOffset: v })}
+      />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+    </>
+  );
+}
+
+function XCoreForm({ properties, onChange }: { properties: XCoreProperties; onChange: (p: XCoreProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField
+        label="Slot Width"
+        unitKind="m"
+        value={properties.slotWidth}
+        onChange={(v) => onChange({ ...properties, slotWidth: v })}
+      />
+      <NumberField
+        label="Slot Length"
+        unitKind="m"
+        value={properties.slotLength}
+        onChange={(v) => onChange({ ...properties, slotLength: v })}
+      />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+    </>
+  );
+}
+
+function CGrainForm({ properties, onChange }: { properties: CGrainProperties; onChange: (p: CGrainProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField
+        label="Slot Width"
+        unitKind="m"
+        value={properties.slotWidth}
+        onChange={(v) => onChange({ ...properties, slotWidth: v })}
+      />
+      <NumberField
+        label="Slot Offset"
+        unitKind="m"
+        value={properties.slotOffset}
+        onChange={(v) => onChange({ ...properties, slotOffset: v })}
+      />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+    </>
+  );
+}
+
+function FinocylForm({ properties, onChange }: { properties: FinocylProperties; onChange: (p: FinocylProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField
+        label="Core Diameter"
+        unitKind="m"
+        value={properties.coreDiameter}
+        onChange={(v) => onChange({ ...properties, coreDiameter: v })}
+      />
+      <NumberField
+        label="Number of Fins"
+        value={properties.numFins}
+        step={1}
+        min={0}
+        onChange={(v) => onChange({ ...properties, numFins: Math.round(v) })}
+      />
+      <NumberField label="Fin Width" unitKind="m" value={properties.finWidth} onChange={(v) => onChange({ ...properties, finWidth: v })} />
+      <NumberField
+        label="Fin Length"
+        unitKind="m"
+        value={properties.finLength}
+        onChange={(v) => onChange({ ...properties, finLength: v })}
+      />
+      <CheckboxField
+        label="Inverted Fins"
+        value={properties.invertedFins}
+        onChange={(v) => onChange({ ...properties, invertedFins: v })}
+      />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+    </>
+  );
+}
+
+function RodTubeForm({ properties, onChange }: { properties: RodTubeGrainProperties; onChange: (p: RodTubeGrainProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField
+        label="Core Diameter"
+        unitKind="m"
+        value={properties.coreDiameter}
+        onChange={(v) => onChange({ ...properties, coreDiameter: v })}
+      />
+      <NumberField
+        label="Rod Diameter"
+        unitKind="m"
+        value={properties.rodDiameter}
+        onChange={(v) => onChange({ ...properties, rodDiameter: v })}
+      />
+      <NumberField
+        label="Support Diameter"
+        unitKind="m"
+        value={properties.supportDiameter}
+        onChange={(v) => onChange({ ...properties, supportDiameter: v })}
+      />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+    </>
+  );
+}
+
+function EndBurnerForm({ properties, onChange }: { properties: EndBurnerProperties; onChange: (p: EndBurnerProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+    </>
+  );
+}
+
+function ConicalForm({ properties, onChange }: { properties: ConicalGrainProperties; onChange: (p: ConicalGrainProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <NumberField
+        label="Forward Core Diameter"
+        unitKind="m"
+        value={properties.forwardCoreDiameter}
+        onChange={(v) => onChange({ ...properties, forwardCoreDiameter: v })}
+      />
+      <NumberField
+        label="Aft Core Diameter"
+        unitKind="m"
+        value={properties.aftCoreDiameter}
+        onChange={(v) => onChange({ ...properties, aftCoreDiameter: v })}
       />
       <SelectField
         label="Inhibited Ends"
@@ -318,6 +509,33 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
                     properties={draftGrain.properties}
                     onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
                   />
+                )}
+                {draftGrain.type === 'D Grain' && (
+                  <DGrainForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'D Grain', properties })} />
+                )}
+                {draftGrain.type === 'X Core' && (
+                  <XCoreForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'X Core', properties })} />
+                )}
+                {draftGrain.type === 'C Grain' && (
+                  <CGrainForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'C Grain', properties })} />
+                )}
+                {draftGrain.type === 'Finocyl' && (
+                  <FinocylForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Finocyl', properties })} />
+                )}
+                {draftGrain.type === 'Rod and Tube' && (
+                  <RodTubeForm
+                    properties={draftGrain.properties}
+                    onChange={(properties) => setDraftGrain({ type: 'Rod and Tube', properties })}
+                  />
+                )}
+                {draftGrain.type === 'End Burner' && (
+                  <EndBurnerForm
+                    properties={draftGrain.properties}
+                    onChange={(properties) => setDraftGrain({ type: 'End Burner', properties })}
+                  />
+                )}
+                {draftGrain.type === 'Conical' && (
+                  <ConicalForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Conical', properties })} />
                 )}
                 <ApplyCancelRow
                   onApply={() => {

@@ -29,10 +29,73 @@ export interface MoonBurnerProperties {
   inhibitedEnds: InhibitedEnds;
 }
 
+export interface DGrainProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  slotOffset: number;
+}
+
+export interface XCoreProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  slotWidth: number;
+  slotLength: number;
+}
+
+export interface CGrainProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  slotWidth: number;
+  slotOffset: number;
+}
+
+export interface EndBurnerProperties {
+  diameter: number;
+  length: number;
+}
+
+export interface ConicalGrainProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  forwardCoreDiameter: number;
+  aftCoreDiameter: number;
+}
+
+export interface RodTubeGrainProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  coreDiameter: number;
+  rodDiameter: number;
+  supportDiameter: number;
+}
+
+export interface FinocylProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  numFins: number;
+  finWidth: number;
+  finLength: number;
+  coreDiameter: number;
+  invertedFins: boolean;
+}
+
 export type GrainConfig =
   | { type: 'BATES'; properties: BatesGrainProperties }
   | { type: 'Star Grain'; properties: StarGrainProperties }
-  | { type: 'Moon Burner'; properties: MoonBurnerProperties };
+  | { type: 'Moon Burner'; properties: MoonBurnerProperties }
+  | { type: 'D Grain'; properties: DGrainProperties }
+  | { type: 'X Core'; properties: XCoreProperties }
+  | { type: 'C Grain'; properties: CGrainProperties }
+  | { type: 'Finocyl'; properties: FinocylProperties }
+  | { type: 'Rod and Tube'; properties: RodTubeGrainProperties }
+  | { type: 'End Burner'; properties: EndBurnerProperties }
+  | { type: 'Conical'; properties: ConicalGrainProperties };
 
 export interface PropellantTab {
   minPressure: number;

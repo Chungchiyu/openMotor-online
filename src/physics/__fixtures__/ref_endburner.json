@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "alerts": [
+    {
+      "level": "WARNING",
+      "type": "VALUE",
+      "description": "Low exit pressure, nozzle flow may separate"
+    }
+  ],
+  "burnTime": 7.290000000000016,
+  "averageForce": 217.74123711457614,
+  "isp": 205.15731138030577,
+  "propellantMass": 0.7922168814810947,
+  "maxPressure": 5183110.728315277,
+  "impulse": 1593.865855678708,
+  "initialKN": 99.99999999999999,
+  "motorDict": {
+    "nozzle": {
+      "throat": 0.006350012700025401,
+      "exit": 0.01778003556007112,
+      "efficiency": 0.9,
+      "divAngle": 15.0,
+      "convAngle": 65.0,
+      "throatLength": 0.0012700025400050803,
+      "slagCoeff": 0,
+      "erosionCoeff": 0
+    },
+    "propellant": {
+      "name": "RCS - Warp 9",
+      "density": 1641.4179858444998,
+      "tabs": [
+        {
+          "minPressure": 0.0,
+          "maxPressure": 10342500.000000002,
+          "a": 0.0002472181550396159,
+          "n": 0.287,
+          "k": 1.229,
+          "t": 2780.0,
+          "m": 23.669
+        }
+      ]
+    },
+    "grains": [
+      {
+        "type": "End Burner",
+        "properties": {
+          "diameter": 0.06350012700025401,
+          "length": 0.15240030480060962
+        }
+      }
+    ],
+    "config": {
+      "maxPressure": 10342500.000000002,
+      "maxMassFlux": 1406.4697609001405,
+      "maxMachNumber": 0.0,
+      "minPortThroat": 2.0,
+      "flowSeparationWarnPercent": 0.0,
+      "burnoutWebThres": 0.00025400050800101603,
+      "burnoutThrustThres": 0.1,
+      "timestep": 0.03,
+      "ambPressure": 101324.99674500001,
+      "mapDim": 750,
+      "sepPressureRatio": 0.001
+    }
+  }
+}

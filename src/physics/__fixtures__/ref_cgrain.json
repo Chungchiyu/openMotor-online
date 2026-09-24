@@ -1,0 +1,74 @@
+{
+  "success": true,
+  "alerts": [
+    {
+      "level": "WARNING",
+      "type": "CONSTRAINT",
+      "description": "Max core Mach number exceeded configured limit"
+    },
+    {
+      "level": "WARNING",
+      "type": "VALUE",
+      "description": "Low exit pressure, nozzle flow may separate"
+    }
+  ],
+  "burnTime": 3.959999999999989,
+  "averageForce": 55.99999790959376,
+  "isp": 198.24973827459928,
+  "propellantMass": 0.11492846553321885,
+  "maxPressure": 4281238.257820231,
+  "impulse": 223.43999165927858,
+  "initialKN": 275.13321906766885,
+  "motorDict": {
+    "nozzle": {
+      "throat": 0.00444500889001778,
+      "exit": 0.012700025400050802,
+      "efficiency": 0.9,
+      "divAngle": 15.0,
+      "convAngle": 65.0,
+      "throatLength": 0.0025400050800101605,
+      "slagCoeff": 0,
+      "erosionCoeff": 0
+    },
+    "propellant": {
+      "name": "MIT - Ocean Water",
+      "density": 1650.0,
+      "tabs": [
+        {
+          "minPressure": 0.0,
+          "maxPressure": 6895000.0,
+          "a": 1.467e-05,
+          "n": 0.382,
+          "k": 1.25,
+          "t": 3500.0,
+          "m": 23.67
+        }
+      ]
+    },
+    "grains": [
+      {
+        "type": "C Grain",
+        "properties": {
+          "diameter": 0.030784861569723144,
+          "length": 0.10160020320040641,
+          "inhibitedEnds": "Neither",
+          "slotWidth": 0.004699009398018796,
+          "slotOffset": 0.0031750063500127004
+        }
+      }
+    ],
+    "config": {
+      "maxPressure": 10342500.000000002,
+      "maxMassFlux": 1406.4697609001405,
+      "maxMachNumber": 0.0,
+      "minPortThroat": 2.0,
+      "flowSeparationWarnPercent": 0.0,
+      "burnoutWebThres": 0.00025400050800101603,
+      "burnoutThrustThres": 0.1,
+      "timestep": 0.03,
+      "ambPressure": 101324.99674500001,
+      "mapDim": 750,
+      "sepPressureRatio": 0.001
+    }
+  }
+}

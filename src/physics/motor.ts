@@ -157,8 +157,8 @@ export class Motor {
     simRes.multiChannels.machNumber.push(this.grains.map(() => 0));
 
     const lastGrain = this.grains[this.grains.length - 1];
-    if (lastGrain) {
-      const aftPort = lastGrain.getPortArea(0);
+    const aftPort = lastGrain?.getPortArea(0);
+    if (aftPort != null) {
       const minAllowed = this.design.config.minPortThroat;
       const ratio = aftPort / geometry.circleArea(this.design.nozzle.throat);
       if (ratio < minAllowed) {

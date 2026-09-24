@@ -35,7 +35,9 @@ export abstract class Grain {
   }
 
   abstract getEndPositions(regDist: number): [number, number];
-  abstract getPortArea(regDist: number): number;
+  /** Null for a grain with no port at all (e.g. End Burner), matching motorlib's `getPortArea`
+   * returning `None` for that case. */
+  abstract getPortArea(regDist: number): number | null;
 
   getRegressedLength(regDist: number): number {
     const [top, bottom] = this.getEndPositions(regDist);

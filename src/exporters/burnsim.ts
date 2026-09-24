@@ -56,14 +56,13 @@ export function buildBurnSimFile(design: MotorDesign): BurnSimExportResult {
   const propellant = design.propellant;
 
   design.grains.forEach((grain, gid) => {
-    const typeCode = grain.type === 'BATES' ? '1' : grain.type === 'Moon Burner' ? '3' : null;
-    if (typeCode === null || !propellant) {
+    if ((grain.type !== 'BATES' && grain.type !== 'Moon Burner') || !propellant) {
       skipped.push({ index: gid + 1, type: grain.type });
       return;
     }
 
     const grainEl = doc.createElement('Grain');
-    grainEl.setAttribute('Type', typeCode);
+    grainEl.setAttribute('Type', grain.type === 'BATES' ? '1' : '3');
     grainEl.setAttribute('Propellant', propellant.name);
     grainEl.setAttribute('Diameter', mToIn(grain.properties.diameter));
     grainEl.setAttribute('Length', mToIn(grain.properties.length));
@@ -72,10 +71,10 @@ export function buildBurnSimFile(design: MotorDesign): BurnSimExportResult {
     grainEl.setAttribute('EndsInhibited', ends === 'Neither' ? '0' : ends === 'Top' || ends === 'Bottom' ? '1' : '2');
 
     if (grain.type === 'BATES') {
-      const props = grain.properties as BatesGrainProperties;
+      const props: BatesGrainProperties = grain.properties;
       grainEl.setAttribute('CoreDiameter', mToIn(props.coreDiameter));
-    } else if (grain.type === 'Moon Burner') {
-      const props = grain.properties as MoonBurnerProperties;
+    } else {
+      const props: MoonBurnerProperties = grain.properties;
       grainEl.setAttribute('CoreDiameter', mToIn(props.coreDiameter));
       grainEl.setAttribute('CoreOffset', mToIn(props.coreOffset));
     }

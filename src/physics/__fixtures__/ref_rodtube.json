@@ -1,0 +1,75 @@
+{
+  "success": true,
+  "alerts": [
+    {
+      "level": "WARNING",
+      "type": "CONSTRAINT",
+      "description": "Max core Mach number exceeded configured limit"
+    },
+    {
+      "level": "WARNING",
+      "type": "VALUE",
+      "description": "Low exit pressure, nozzle flow may separate"
+    }
+  ],
+  "burnTime": 6.390000000000009,
+  "averageForce": 12347.031128166795,
+  "isp": 236.7429863746977,
+  "propellantMass": 34.142850297225415,
+  "maxPressure": 6585156.073585201,
+  "impulse": 79267.93984283094,
+  "initialKN": 383.4710743801653,
+  "motorDict": {
+    "nozzle": {
+      "throat": 0.04191008382016764,
+      "exit": 0.12065024130048262,
+      "efficiency": 0.9,
+      "divAngle": 15.0,
+      "convAngle": 65.0,
+      "throatLength": 0.010160020320040642,
+      "slagCoeff": 0,
+      "erosionCoeff": 0
+    },
+    "propellant": {
+      "name": "MIT - Cherry Limeade",
+      "density": 1680.0037644662068,
+      "tabs": [
+        {
+          "minPressure": 0.0,
+          "maxPressure": 6895000.000000001,
+          "a": 3.517054143255937e-05,
+          "n": 0.3273,
+          "k": 1.21,
+          "t": 3500.0,
+          "m": 23.67
+        }
+      ]
+    },
+    "grains": [
+      {
+        "type": "Rod and Tube",
+        "properties": {
+          "diameter": 0.1841503683007366,
+          "length": 0.9144018288036577,
+          "inhibitedEnds": "Both",
+          "coreDiameter": 0.10731521463042927,
+          "rodDiameter": 0.07683515367030735,
+          "supportDiameter": 0
+        }
+      }
+    ],
+    "config": {
+      "maxPressure": 10342500.000000002,
+      "maxMassFlux": 1406.4697609001405,
+      "maxMachNumber": 0.0,
+      "minPortThroat": 2.0,
+      "flowSeparationWarnPercent": 0.0,
+      "burnoutWebThres": 0.00025400050800101603,
+      "burnoutThrustThres": 0.1,
+      "timestep": 0.03,
+      "ambPressure": 101324.99674500001,
+      "mapDim": 750,
+      "sepPressureRatio": 0.001
+    }
+  }
+}

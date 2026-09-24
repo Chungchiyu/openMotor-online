@@ -1,0 +1,94 @@
+{
+  "success": true,
+  "alerts": [
+    {
+      "level": "WARNING",
+      "type": "CONSTRAINT",
+      "description": "Initial port/throat ratio of 0.562 was less than 2.000"
+    },
+    {
+      "level": "WARNING",
+      "type": "CONSTRAINT",
+      "description": "Peak mass flux exceeded configured limit"
+    },
+    {
+      "level": "WARNING",
+      "type": "CONSTRAINT",
+      "description": "Max pressure exceeded configured limit"
+    },
+    {
+      "level": "WARNING",
+      "type": "CONSTRAINT",
+      "description": "Max core Mach number exceeded allowable subsonic limit (M>1.0)"
+    },
+    {
+      "level": "WARNING",
+      "type": "VALUE",
+      "description": "Low exit pressure, nozzle flow may separate"
+    },
+    {
+      "level": "WARNING",
+      "type": "VALUE",
+      "description": "Chamber pressure deviated from propellant's entered ranges. Results may not be accurate."
+    }
+  ],
+  "burnTime": 4.499999999999993,
+  "averageForce": 1307.5766346802477,
+  "isp": 232.2828115360525,
+  "propellantMass": 2.600324835189488,
+  "maxPressure": 14369357.518223409,
+  "impulse": 5923.322155101503,
+  "initialKN": 263.0411711180212,
+  "motorDict": {
+    "nozzle": {
+      "throat": 0.013335026670053342,
+      "exit": 0.038100076200152405,
+      "efficiency": 0.9,
+      "divAngle": 15.0,
+      "convAngle": 65.0,
+      "throatLength": 0.0038100076200152403,
+      "slagCoeff": 0,
+      "erosionCoeff": 0
+    },
+    "propellant": {
+      "name": "MIT - Ocean Water",
+      "density": 1650.0,
+      "tabs": [
+        {
+          "minPressure": 0.0,
+          "maxPressure": 6895000.0,
+          "a": 1.467e-05,
+          "n": 0.382,
+          "k": 1.25,
+          "t": 3500.0,
+          "m": 23.67
+        }
+      ]
+    },
+    "grains": [
+      {
+        "type": "Conical",
+        "properties": {
+          "diameter": 0.06477012954025908,
+          "length": 0.5334010668021336,
+          "forwardCoreDiameter": 0.03,
+          "aftCoreDiameter": 0.01,
+          "inhibitedEnds": "Top"
+        }
+      }
+    ],
+    "config": {
+      "maxPressure": 10342500.000000002,
+      "maxMassFlux": 1406.4697609001405,
+      "maxMachNumber": 0.0,
+      "minPortThroat": 2.0,
+      "flowSeparationWarnPercent": 0.0,
+      "burnoutWebThres": 0.00025400050800101603,
+      "burnoutThrustThres": 0.1,
+      "timestep": 0.03,
+      "ambPressure": 101324.99674500001,
+      "mapDim": 750,
+      "sepPressureRatio": 0.001
+    }
+  }
+}
