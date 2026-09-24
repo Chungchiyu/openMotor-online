@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PropellantConfig } from '../physics/types';
+import { downloadTextFile } from '../persistence';
 import { uniqueName } from '../propellantLibrary';
+import { exportPropellantsRic, importPropellantsRic } from '../ric';
 import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { PropellantForm } from './PropellantForm';
 import { usePropellantLibrary } from './PropellantLibraryContext';
@@ -39,9 +41,11 @@ function PropellantApplyCancelRow({ onApply, onCancel }: { onApply: () => void; 
  * per-motor propellant dropdown in MotorBuilder.
  */
 export function PropellantEditorDialog({ onClose }: Props) {
-  const { library, updatePropellant, addPropellant, deletePropellant } = usePropellantLibrary();
+  const { library, updatePropellant, addPropellant, addPropellants, deletePropellant } = usePropellantLibrary();
   const [selectedName, setSelectedName] = useState<string | null>(library[0]?.name ?? null);
   const [draft, setDraft] = useState<PropellantConfig | null>(library[0] ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDraft(library.find((p) => p.name === selectedName) ?? null);
@@ -71,6 +75,29 @@ export function PropellantEditorDialog({ onClose }: Props) {
     setSelectedName(draft.name);
   };
 
+  const handleExportLibrary = () => {
+    downloadTextFile(exportPropellantsRic(library), 'propellants.ric', 'application/x-yaml');
+  };
+
+  const handleImportLibraryClick = () => importInputRef.current?.click();
+
+  const handleImportLibraryFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const imported = importPropellantsRic(text);
+      // Matches the Python source's own migration-backfill pattern (add if the name is new, leave
+      // existing entries alone) — re-importing a file you already have shouldn't pile up "(2)"
+      // duplicates of everything in it.
+      const existingNames = new Set(library.map((p) => p.name));
+      const toAdd = imported.filter((p) => !existingNames.has(p.name));
+      addPropellants(toAdd);
+      const skipped = imported.length - toAdd.length;
+      setError(skipped > 0 ? `Imported ${toAdd.length} new propellant(s); skipped ${skipped} already in your library.` : null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that .ric file.');
+    }
+  };
+
   return (
     <div className="about-dialog-backdrop" onClick={onClose}>
       <div className="propellant-editor-dialog" onClick={(e) => e.stopPropagation()}>
@@ -78,6 +105,7 @@ export function PropellantEditorDialog({ onClose }: Props) {
           <h2>Propellant Editor</h2>
           <button onClick={onClose}>Close</button>
         </div>
+        {error && <div className="error-banner">{error}</div>}
         <div className="propellant-editor-body">
           <div className="propellant-editor-list">
             <ul>
@@ -92,6 +120,21 @@ export function PropellantEditorDialog({ onClose }: Props) {
               <button onClick={handleDelete} disabled={library.length <= 1}>
                 Delete
               </button>
+            </div>
+            <div className="propellant-editor-list-actions">
+              <button onClick={handleImportLibraryClick}>Import .ric…</button>
+              <button onClick={handleExportLibrary}>Export .ric</button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".ric"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleImportLibraryFile(file);
+                  e.target.value = '';
+                }}
+              />
             </div>
           </div>
           <div className="propellant-editor-form">

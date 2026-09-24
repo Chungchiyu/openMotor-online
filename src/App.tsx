@@ -7,10 +7,21 @@ import { useHistory } from './history';
 import { Motor, type SimProgress } from './physics/motor';
 import type { SimulationResult } from './physics/simResult';
 import { defaultMotorConfig, defaultNozzle, type MotorDesign } from './physics/types';
-import { autosave, downloadDesign, downloadTextFile, loadAutosave, parseDesignFile } from './persistence';
-import { addRecentFile, loadRecentFiles, type RecentFileEntry } from './recentFiles';
+import {
+  autosave,
+  downloadDesign,
+  downloadTextFile,
+  loadAutosave,
+  loadOpenRecordId,
+  parseDesignFile,
+  saveOpenRecordId,
+} from './persistence';
+import { exportMotorRic, importMotorRic } from './ric';
+import { createDesignRecord, getDesignRecord, updateDesignRecord, type DesignRecord } from './storage/designStore';
+import { migrateLegacyRecentFilesIfNeeded } from './storage/migrateLegacyRecentFiles';
 import { AlertsModal } from './ui/AlertsModal';
 import { EngExportDialog } from './ui/EngExportDialog';
+import { FileManagerDialog } from './ui/FileManagerDialog';
 import { MotorBuilder, type Selection } from './ui/MotorBuilder';
 import { PreferencesDialog } from './ui/PreferencesDialog';
 import { PropellantLibraryProvider } from './ui/PropellantLibraryContext';
@@ -40,29 +51,45 @@ function AppInner() {
   const [showPreferences, setShowPreferences] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showEngExport, setShowEngExport] = useState(false);
-  const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(() => loadRecentFiles());
+  const [showFileManager, setShowFileManager] = useState(false);
+  const [openRecord, setOpenRecord] = useState<DesignRecord | null>(null);
 
   const cancelRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const burnsimInputRef = useRef<HTMLInputElement>(null);
+  const ricInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     autosave(design);
   }, [design]);
 
+  useEffect(() => {
+    saveOpenRecordId(openRecord?.id ?? null);
+  }, [openRecord]);
+
+  // Reconnects to whichever File Manager record was open before a reload — the design content
+  // itself already came back via autosave, so this only needs to restore the id/name link (and
+  // silently drop it if that record was since deleted).
+  useEffect(() => {
+    void (async () => {
+      await migrateLegacyRecentFilesIfNeeded();
+      const savedId = loadOpenRecordId();
+      if (!savedId) return;
+      const record = await getDesignRecord(savedId);
+      if (record) setOpenRecord(record);
+    })();
+  }, []);
+
   const updateDesign = (updater: (d: MotorDesign) => MotorDesign) => {
     history.set(updater);
   };
 
-  const loadDesign = (next: MotorDesign, name?: string) => {
+  const loadDesign = (next: MotorDesign, record: DesignRecord | null = null) => {
     history.reset(next);
     setSelection(null);
     setResult(null);
     setError(null);
-    if (name) {
-      addRecentFile(name, next);
-      setRecentFiles(loadRecentFiles());
-    }
+    setOpenRecord(record);
   };
 
   const handleNew = () => {
@@ -70,10 +97,19 @@ function AppInner() {
     loadDesign(blankDesign());
   };
 
-  const handleSave = () => {
-    downloadDesign(design, 'motor.json');
-    addRecentFile('motor.json', design);
-    setRecentFiles(loadRecentFiles());
+  const handleSaveAsNew = async () => {
+    const name = window.prompt('Save design as:', openRecord?.name ?? 'motor');
+    if (!name) return;
+    const record = await createDesignRecord(name, design);
+    setOpenRecord(record);
+  };
+
+  const handleSave = async () => {
+    if (openRecord) {
+      setOpenRecord(await updateDesignRecord(openRecord.id, { design }));
+    } else {
+      await handleSaveAsNew();
+    }
   };
 
   const handleLoadClick = () => fileInputRef.current?.click();
@@ -82,13 +118,33 @@ function AppInner() {
     try {
       const text = await file.text();
       const loaded = parseDesignFile(text);
-      loadDesign(loaded, file.name);
+      loadDesign(loaded);
     } catch {
       setError('Could not read that file — is it a valid openMotor Online design?');
     }
   };
 
-  const handleOpenRecent = (entry: RecentFileEntry) => loadDesign(entry.design, entry.name);
+  const handleFileManagerOpen = (record: DesignRecord) => {
+    loadDesign(record.design, record);
+    setShowFileManager(false);
+  };
+
+  const handleImportRicClick = () => ricInputRef.current?.click();
+
+  const handleImportRicFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const { design: imported, errors } = importMotorRic(text);
+      loadDesign(imported);
+      if (errors.length > 0) setError(errors.join(' '));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that .ric file.');
+    }
+  };
+
+  const handleExportRic = () => {
+    downloadTextFile(exportMotorRic(design), `${openRecord?.name ?? 'motor'}.ric`, 'application/x-yaml');
+  };
 
   const handleImportBurnSimClick = () => burnsimInputRef.current?.click();
 
@@ -96,7 +152,7 @@ function AppInner() {
     try {
       const text = await file.text();
       const { design: imported, errors } = parseBurnSimFile(text, defaultMotorConfig(), defaultNozzle());
-      loadDesign(imported, file.name);
+      loadDesign(imported);
       if (errors.length > 0) setError(errors.join(' '));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read that BurnSim file.');
@@ -191,27 +247,20 @@ function AppInner() {
           <div className="menu-dropdown tools-dropdown">
             <div className="tools-dropdown-group">
               <button onClick={handleNew}>New</button>
-              <button onClick={handleSave}>Save</button>
-              <button onClick={handleLoadClick}>Load…</button>
-            </div>
-            <div className="tools-dropdown-group">
-              <div className="tools-dropdown-heading">Open Recent</div>
-              {recentFiles.length === 0 ? (
-                <div className="recent-files-empty">No recent files</div>
-              ) : (
-                recentFiles.map((entry) => (
-                  <button key={entry.name + entry.savedAt} onClick={() => handleOpenRecent(entry)}>
-                    {entry.name}
-                  </button>
-                ))
-              )}
+              <button onClick={() => void handleSave()}>Save{openRecord ? ` (${openRecord.name})` : ''}</button>
+              <button onClick={() => void handleSaveAsNew()}>Save As New…</button>
+              <button onClick={() => setShowFileManager(true)}>File Manager…</button>
             </div>
             <div className="tools-dropdown-group">
               <div className="tools-dropdown-heading">Import</div>
+              <button onClick={handleLoadClick}>Design File (.json)…</button>
+              <button onClick={handleImportRicClick}>.ric File…</button>
               <button onClick={handleImportBurnSimClick}>BurnSim File…</button>
             </div>
             <div className="tools-dropdown-group">
               <div className="tools-dropdown-heading">Export</div>
+              <button onClick={() => downloadDesign(design, 'motor.json')}>Design File (.json)</button>
+              <button onClick={handleExportRic}>.ric File</button>
               <button onClick={handleExportCsv}>CSV File</button>
               <button onClick={() => setShowEngExport(true)} disabled={!result}>
                 .eng File
@@ -284,6 +333,17 @@ function AppInner() {
             e.target.value = '';
           }}
         />
+        <input
+          ref={ricInputRef}
+          type="file"
+          accept=".ric"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImportRicFile(file);
+            e.target.value = '';
+          }}
+        />
       </nav>
 
       {error && <div className="error-banner">{error}</div>}
@@ -307,6 +367,14 @@ function AppInner() {
         </div>
       )}
 
+      {showFileManager && (
+        <FileManagerDialog
+          currentDesign={design}
+          onClose={() => setShowFileManager(false)}
+          onOpenDesign={handleFileManagerOpen}
+          onSavedAsNew={setOpenRecord}
+        />
+      )}
       {showPreferences && <PreferencesDialog onClose={() => setShowPreferences(false)} />}
       {showAlerts && result && <AlertsModal alerts={result.alerts} onClose={() => setShowAlerts(false)} />}
       {showEngExport && result && (

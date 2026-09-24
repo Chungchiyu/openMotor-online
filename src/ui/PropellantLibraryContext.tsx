@@ -7,6 +7,10 @@ interface LibraryApi {
   /** Replaces the entry that was named `originalName` with `updated` (renames are allowed). */
   updatePropellant: (originalName: string, updated: PropellantConfig) => void;
   addPropellant: (p: PropellantConfig) => void;
+  /** Adds several propellants in one update — calling `addPropellant` in a loop drops all but the
+   * last, since each call closes over the same pre-loop `library` value (React batches the
+   * `setState` calls in between). */
+  addPropellants: (list: PropellantConfig[]) => void;
   deletePropellant: (name: string) => void;
 }
 
@@ -28,6 +32,13 @@ export function PropellantLibraryProvider({ children }: { children: ReactNode })
       },
       addPropellant: (p) => {
         persist([...library, { ...p, name: uniqueName(library, p.name) }]);
+      },
+      addPropellants: (list) => {
+        let next = library;
+        for (const p of list) {
+          next = [...next, { ...p, name: uniqueName(next, p.name) }];
+        }
+        persist(next);
       },
       deletePropellant: (name) => {
         persist(library.filter((p) => p.name !== name));

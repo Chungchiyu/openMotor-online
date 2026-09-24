@@ -55,3 +55,24 @@ export function parseDesignFile(text: string): MotorDesign {
   if ('design' in parsed && 'formatVersion' in parsed) return parsed.design;
   return parsed as MotorDesign;
 }
+
+const OPEN_RECORD_KEY = 'openmotor-online:openRecordId:v1';
+
+/** Remembers which File Manager record (storage/designStore.ts) is "the open file", so a page
+ * reload's autosave restore doesn't sever the connection and turn the next Save into a duplicate. */
+export function saveOpenRecordId(id: string | null): void {
+  try {
+    if (id) window.localStorage.setItem(OPEN_RECORD_KEY, id);
+    else window.localStorage.removeItem(OPEN_RECORD_KEY);
+  } catch {
+    // best-effort, same reasoning as autosave
+  }
+}
+
+export function loadOpenRecordId(): string | null {
+  try {
+    return window.localStorage.getItem(OPEN_RECORD_KEY);
+  } catch {
+    return null;
+  }
+}
