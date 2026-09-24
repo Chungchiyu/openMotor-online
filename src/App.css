@@ -803,7 +803,7 @@ button.active {
 
 .propellant-row {
   display: flex;
-  align-items: flex-end;
+  /* align-items: flex-end; */
   gap: 12px;
   margin: 6px 0;
 }
@@ -876,10 +876,10 @@ button.active {
 .grain-list-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  /* gap: 4px; */
   margin-top: 6px;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: space-between;
 }
 
 .grain-list-actions select,
@@ -889,13 +889,6 @@ button.active {
    * some displays/font metrics even though it technically fit on others. Content sizing always
    * leaves genuine slack before the edge, regardless of exact text metrics. */
   flex: 0 0 auto;
-}
-
-.grain-list-actions button {
-  /* Tighter than the app-wide 6px 12px default — five items (type picker + 4 buttons) need to
-   * fit this one narrow panel width, and the default padding left barely any margin before the
-   * panel's edge on the last button. */
-  padding: 6px 8px;
 }
 
 /* --- Results panel --- */
@@ -1207,6 +1200,17 @@ button.active {
   z-index: 1;
   background: var(--bg);
   border-right: 1px solid var(--border);
+}
+.grains-grid > :nth-child(1) {
+  /* Empty (no text), so its intrinsic content height is shorter than the header cells beside it;
+   * without stretching, `align-items: center` on the grid centers its shorter box within the row
+   * track, leaving its border-bottom above the other header cells' border-bottom. */
+  align-self: stretch;
+}
+.grains-grid > :nth-child(19) {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
 }
 
 .alerts-table {
