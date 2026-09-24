@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { defaultGrainConfig } from '../physics/grains';
 import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig } from '../physics/types';
 import { CollectionList } from './CollectionList';
@@ -22,6 +22,29 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
   const [showPropellantEditor, setShowPropellantEditor] = useState(false);
   const { library } = usePropellantLibrary();
 
+  // A stable per-grain id, independent of array position, used only as CollectionList's row `key`
+  // (see reorderGrains below). Array-index keys can't survive a drag: SortableJS physically moves
+  // the dragged <tr> itself, and with position-based keys React's next render treats "index 0" as
+  // the same element it always was, patching the wrong physical node instead of recognizing a
+  // move — a stable id is what lets React's own reconciliation correctly move (not repaint) the
+  // right DOM node to match wherever SortableJS actually dropped it.
+  const nextGrainId = useRef(design.grains.length);
+  const [grainIds, setGrainIds] = useState<number[]>(() => design.grains.map((_, i) => i));
+  // Safety net for grains changing length through something other than the handlers below (e.g. a
+  // file load or undo/redo, which replace design.grains wholesale) — keeps grainIds the same
+  // length as design.grains so CollectionList never indexes past the end of either array. It's a
+  // no-op whenever the handlers below already kept both in sync.
+  useEffect(() => {
+    setGrainIds((ids) => {
+      if (ids.length === design.grains.length) return ids;
+      if (ids.length < design.grains.length) {
+        const added = Array.from({ length: design.grains.length - ids.length }, () => nextGrainId.current++);
+        return [...ids, ...added];
+      }
+      return ids.slice(0, design.grains.length);
+    });
+  }, [design.grains.length]);
+
   const applyGrain = (index: number, grain: GrainConfig) => {
     onDesignChange((d) => ({ ...d, grains: d.grains.map((g, i) => (i === index ? grain : g)) }));
   };
@@ -36,17 +59,29 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
 
   const addGrain = () => {
     onDesignChange((d) => ({ ...d, grains: [...d.grains, defaultGrainConfig(newGrainType)] }));
+    setGrainIds((ids) => [...ids, nextGrainId.current++]);
   };
 
-  const moveGrain = (index: number, dir: -1 | 1) => {
+  // Called with the drag's raw oldIndex/newIndex (rather than an already-reordered grains array)
+  // so grainIds can be permuted the exact same way, keeping each id attached to the same grain it
+  // was before the drag.
+  const reorderGrains = (oldIndex: number, newIndex: number) => {
     onDesignChange((d) => {
       const grains = [...d.grains];
-      const target = index + dir;
-      if (target < 0 || target >= grains.length) return d;
-      [grains[index], grains[target]] = [grains[target], grains[index]];
+      const [moved] = grains.splice(oldIndex, 1);
+      grains.splice(newIndex, 0, moved);
       return { ...d, grains };
     });
-    setHighlightedGrainIndex(index + dir);
+    setGrainIds((ids) => {
+      const next = [...ids];
+      const [movedId] = next.splice(oldIndex, 1);
+      next.splice(newIndex, 0, movedId);
+      return next;
+    });
+    // A drag can move grains other than the highlighted/open one, so their indices are no longer
+    // trustworthy afterward — same reasoning as deleteGrain resetting selection below.
+    setHighlightedGrainIndex(null);
+    if (selection?.kind === 'grain') onSelectionChange(null);
   };
 
   const copyGrain = (index: number) => {
@@ -55,10 +90,16 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
       grains.splice(index + 1, 0, JSON.parse(JSON.stringify(grains[index])));
       return { ...d, grains };
     });
+    setGrainIds((ids) => {
+      const next = [...ids];
+      next.splice(index + 1, 0, nextGrainId.current++);
+      return next;
+    });
   };
 
   const deleteGrain = (index: number) => {
     onDesignChange((d) => ({ ...d, grains: d.grains.filter((_, i) => i !== index) }));
+    setGrainIds((ids) => ids.filter((_, i) => i !== index));
     // Keep the highlight on whichever grain took the deleted one's place (or the new last grain,
     // if the last one was deleted) instead of un-highlighting everything.
     const remainingCount = design.grains.length - 1;
@@ -117,6 +158,7 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
 
         <CollectionList
           grains={design.grains}
+          grainIds={grainIds}
           highlightedGrainIndex={highlightedGrainIndex}
           highlightedKind={highlightedKind}
           onHighlightGrain={(i) => {
@@ -146,13 +188,10 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
             setHighlightedKind('config');
             onSelectionChange({ kind: 'config' });
           }}
-          onMoveUp={(i) => moveGrain(i, -1)}
-          onMoveDown={(i) => moveGrain(i, 1)}
-          onCopy={copyGrain}
-          onDelete={deleteGrain}
+          onReorderGrains={reorderGrains}
         />
 
-        <div className="add-grain-row">
+        <div className="grain-list-actions">
           <select value={newGrainType} onChange={(e) => setNewGrainType(e.target.value as GrainConfig['type'])}>
             <option value="BATES">BATES</option>
             <option value="Star Grain">Star Grain</option>
@@ -165,7 +204,21 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
             <option value="End Burner">End Burner</option>
             <option value="Conical">Conical</option>
           </select>
-          <button onClick={addGrain}>+ Add Grain</button>
+          <button className="add-grain-btn" onClick={addGrain}>
+            + Add Grain
+          </button>
+          <button
+            disabled={highlightedGrainIndex === null}
+            onClick={() => highlightedGrainIndex !== null && onSelectionChange({ kind: 'grain', index: highlightedGrainIndex })}
+          >
+            Edit
+          </button>
+          <button disabled={highlightedGrainIndex === null} onClick={() => highlightedGrainIndex !== null && copyGrain(highlightedGrainIndex)}>
+            Copy
+          </button>
+          <button disabled={highlightedGrainIndex === null} onClick={() => highlightedGrainIndex !== null && deleteGrain(highlightedGrainIndex)}>
+            Delete
+          </button>
         </div>
       </div>
 

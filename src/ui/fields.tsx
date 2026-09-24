@@ -73,6 +73,9 @@ export function NumberField({ label, value, unitKind, unit, step, min, max, onCh
           step={step ?? 'any'}
           min={min}
           max={max}
+          // Sized to the digits actually typed (with a small floor) rather than a fixed box, so a
+          // short value like "5" doesn't leave a wide empty box and a long one doesn't clip.
+          size={Math.max(text.length, 3)}
           onChange={handleChange}
         />
         {displayUnit && <span className="field-unit">{displayUnit}</span>}
