@@ -1,6 +1,8 @@
-/* Dark palette unconditionally (not tied to OS preference) — the original desktop app always
-   renders dark regardless of system theme, and that's a strong, immediately visible part of what
-   makes this look like openMotor rather than a generic light web form. */
+/* Dark by default regardless of system theme — the original desktop app always rendered dark, and
+   that's a strong, immediately visible part of what makes this look like openMotor rather than a
+   generic light web form. The theme toggle (ThemeToggle/useTheme) sets data-theme on <html>: it
+   follows the OS preference until the user picks explicitly, at which point the light palette
+   below can override this block. */
 :root {
   --text: #a9adba;
   --text-h: #f0f1f4;
@@ -10,6 +12,19 @@
   --accent: #7c6df2;
   --accent-bg: rgba(124, 109, 242, 0.18);
   --accent-border: rgba(124, 109, 242, 0.6);
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --text: #55596a;
+  --text-h: #1a1b23;
+  --bg: #eef0f4;
+  --bg-raised: #ffffff;
+  --border: #d5d8e0;
+  --accent: #6d4fd6;
+  --accent-bg: rgba(109, 79, 214, 0.12);
+  --accent-border: rgba(109, 79, 214, 0.5);
+  color-scheme: light;
 }
 
 .app {
@@ -111,6 +126,57 @@
   gap: 6px;
   font-size: 12px;
   color: var(--text);
+}
+
+.run-button {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+}
+
+.theme-toggle:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--text-h);
+}
+
+.theme-toggle-icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.theme-toggle-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: transform 0.15s ease;
+}
+
+.theme-toggle[aria-checked='true'] .theme-toggle-thumb {
+  transform: translateX(14px);
 }
 
 .about-dialog-backdrop {

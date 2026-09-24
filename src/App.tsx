@@ -16,8 +16,10 @@ import { PreferencesDialog } from './ui/PreferencesDialog';
 import { PropellantLibraryProvider } from './ui/PropellantLibraryContext';
 import { ProgressDialog } from './ui/ProgressDialog';
 import { ResultsPanel } from './ui/ResultsPanel';
+import { ThemeToggle } from './ui/ThemeToggle';
 import { ToolsMenu } from './ui/ToolsMenu';
 import { UnitsProvider, useUnits } from './ui/UnitsContext';
+import { useTheme } from './ui/useTheme';
 import { APP_VERSION } from './version';
 
 function blankDesign(): MotorDesign {
@@ -28,6 +30,7 @@ function AppInner() {
   const history = useHistory<MotorDesign>(() => loadAutosave() ?? blankDesign());
   const design = history.value;
   const { unitFor } = useUnits();
+  const { theme, toggleTheme } = useTheme();
 
   const [selection, setSelection] = useState<Selection>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
@@ -253,7 +256,8 @@ function AppInner() {
         <span className="menu-bar-title">openMotor Online</span>
 
         <div className="menu-bar-right">
-          <button className="primary" onClick={() => void handleRun()} disabled={runProgress !== null}>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <button className="primary run-button" onClick={() => void handleRun()} disabled={runProgress !== null}>
             {runProgress !== null ? 'Running…' : 'Run Simulation'}
           </button>
         </div>
