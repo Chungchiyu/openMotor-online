@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PerforatedGrain } from '../physics/grains/base';
+import type { Grain } from '../physics/grains/base';
 import type { GrainPreview } from '../physics/preview';
 import { AlertsTable } from './AlertsTable';
 import { AreaGraph } from './AreaGraph';
@@ -7,7 +7,10 @@ import { GrainPreviewCanvas } from './GrainPreviewCanvas';
 
 interface Props {
   preview: GrainPreview | null;
-  grain: PerforatedGrain | null;
+  // The base type, not PerforatedGrain: this only ever calls grain.getGeometryErrors(), which
+  // every grain has — End Burner and Conical grains (no 2D cross-section, so always `preview:
+  // null` here) are legitimate callers too, not just the ones a preview can be rastered for.
+  grain: Grain | null;
 }
 
 type Tab = 'face' | 'regression' | 'area' | 'alerts';
@@ -37,8 +40,8 @@ export function GrainPreviewPanel({ preview, grain }: Props) {
         </button>
       </div>
 
-      {tab === 'face' && <GrainPreviewCanvas preview={preview} showContours={false} />}
-      {tab === 'regression' && <GrainPreviewCanvas preview={preview} showContours />}
+      {tab === 'face' && <GrainPreviewCanvas preview={preview} showContours={false} size={120} className="grain-face-canvas" />}
+      {tab === 'regression' && <GrainPreviewCanvas preview={preview} showContours size={120} className="grain-face-canvas" />}
       {tab === 'area' && (preview ? <AreaGraph areaProfile={preview.areaProfile} /> : <div className="chart-placeholder">No preview</div>)}
       {tab === 'alerts' && <AlertsTable alerts={alerts} />}
     </div>

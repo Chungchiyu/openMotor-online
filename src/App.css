@@ -12,6 +12,8 @@
   --accent: #7c6df2;
   --accent-bg: rgba(124, 109, 242, 0.18);
   --accent-border: rgba(124, 109, 242, 0.6);
+  --warning: #fcd34d;
+  --danger: #fca5a5;
   color-scheme: dark;
 }
 
@@ -24,7 +26,38 @@
   --accent: #6d4fd6;
   --accent-bg: rgba(109, 79, 214, 0.12);
   --accent-border: rgba(109, 79, 214, 0.5);
+  /* Darker than the dark-theme amber/red so text stays readable on a white background —
+     the light yellow/red pair used in dark mode has poor contrast here. */
+  --warning: #b45309;
+  --danger: #b91c1c;
   color-scheme: light;
+}
+
+/* Themed scrollbars everywhere (grain list, dialog bodies, the grain results grid, ...) instead of
+ * the browser's default light-grey one, which stands out against this app's dark-by-default
+ * chrome. `scrollbar-width`/`scrollbar-color` cover Firefox; the pseudo-elements cover
+ * Chromium/WebKit, which ignore those properties. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 .app {
@@ -547,9 +580,14 @@ button.active {
 .property-editor-form {
   flex: 1;
   min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  /* Two shared columns — label, then input+unit — so every field's input/unit lines up on one
+   * right-aligned edge down the page like a table, while each input is still only as wide as the
+   * `size` attribute (text length) makes it (see .field-input above). */
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 8px;
 }
 
 .apply-cancel-row {
@@ -580,26 +618,50 @@ button.active {
   max-width: 320px;
 }
 
+/* The grain form's preview specifically: stacked below the property fields (not a flex sibling
+ * beside them — see the grain branch in PropertyEditor.tsx), so it needs none of the base rule's
+ * flex-item sizing above — reset all three so it's a plain block that's the full width of the
+ * settings page (same as .property-editor-form above it). That's what lets .tab-bar.small and the
+ * Area Graph chart below span that same full width. */
+.property-editor-preview.compact {
+  flex: none;
+  min-width: 0;
+  max-width: none;
+  margin-top: 12px;
+}
+
 .grain-preview-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* Lets .tab-bar.small's cqi font-size respond to this panel's own width (which itself is
-   * responsive — see .property-editor-preview) rather than the viewport. */
-  container-type: inline-size;
 }
 
 .tab-bar.small {
   gap: 0;
   flex-wrap: nowrap;
-  overflow-x: auto;
 }
 
 .tab-bar.small button {
-  padding: 4px 8px;
-  font-size: clamp(10px, 2.6cqi, 12px);
-  white-space: nowrap;
-  flex: 0 0 auto;
+  padding: 4px 4px;
+  /* No font-size override — now that the bar spans the full settings-page width (see
+   * .property-editor-preview.compact) there's room for the same size text as everywhere else
+   * (buttons inherit 14px via the base `button { font: inherit }` rule). */
+  /* Equal-width, filling the tab bar (= the full settings-page width, see .property-editor-
+   * preview.compact) rather than each sized to its own label. min-width:0 overrides the flex-item
+   * default of auto (= content's min-content width), which would otherwise stop a long label like
+   * "Regression" from ever going narrower than its unwrapped text — letting labels wrap is what
+   * actually makes the four cells equal. */
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+}
+
+.grain-face-canvas {
+  /* The Face/Regression tabs' canvas is much narrower than the now full-width panel around it
+   * (.tab-bar.small / the Area Graph chart both span that full width) — center it in the leftover
+   * space rather than leaving it flush to one side. */
+  align-self: center;
 }
 
 .propellant-preset-row {
@@ -631,6 +693,14 @@ button.active {
   gap: 8px;
 }
 
+/* Inside a settings page's field grid (see .property-editor-form below), each <label className=
+ * "field"> stops being its own row and instead contributes its two spans directly as grid cells —
+ * that's what lets every row's label sit in one shared column and every input+unit sit flush
+ * against a shared right edge, table-style, instead of each row aligning independently. */
+.property-editor-form .field {
+  display: contents;
+}
+
 .field-label {
   color: var(--text);
   font-size: 13px;
@@ -640,6 +710,10 @@ button.active {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.property-editor-form .field-input {
+  justify-self: end;
 }
 
 .field input[type='number'],
@@ -652,6 +726,11 @@ button.active {
   background: var(--bg);
   color: var(--text-h);
   width: 110px;
+}
+
+/* Sized by the `size` attribute (== characters typed, see NumberField) instead of a fixed box. */
+.property-editor-form .field input[type='number'] {
+  width: auto;
 }
 
 .field select {
@@ -676,6 +755,12 @@ button.active {
   opacity: 0.8;
 }
 
+.property-editor-form .field-note {
+  /* Not a .field itself (no label/input pair) — span both grid columns instead of landing in the
+   * label column and leaving the input column blank next to it. */
+  grid-column: 1 / -1;
+}
+
 /* --- Motor builder: fixed top (editor) / bottom (list) split --- */
 
 .motor-builder {
@@ -693,8 +778,25 @@ button.active {
 }
 
 .motor-builder-list {
+  /* Sized to content up to half the panel's height — past that the grain table (not this whole
+   * block) scrolls internally instead of pushing the editor above it off-screen or growing past
+   * the panel. See .grain-list-scroll. */
+  flex: 0 1 auto;
+  max-height: 50%;
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.motor-builder-list > hr {
+  margin: 4px 0;
+}
+
+.motor-builder-list > hr,
+.motor-builder-list > .propellant-row,
+.motor-builder-list > .grain-list-actions {
   flex: 0 0 auto;
-  padding-top: 8px;
 }
 
 /* --- Propellant row / collection list --- */
@@ -703,7 +805,20 @@ button.active {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  margin: 12px 0;
+  margin: 6px 0;
+}
+
+.grain-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.grain-list-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .grain-list table {
@@ -737,6 +852,22 @@ button.active {
   cursor: pointer;
 }
 
+.grain-list tbody tr.grain-row {
+  /* The whole row is the drag target now (no separate handle column) — grab affordance on
+   * hover, same as the handle used to show. */
+  cursor: grab;
+}
+
+.grain-list tbody tr.grain-row:active {
+  cursor: grabbing;
+}
+
+.grain-list tbody tr.sortable-ghost {
+  /* SortableJS's own placeholder class, marking the row's slot while it's mid-drag. */
+  opacity: 0.4;
+  background: var(--accent-bg);
+}
+
 .grain-list .empty-row {
   text-align: center;
   opacity: 0.6;
@@ -744,20 +875,27 @@ button.active {
 
 .grain-list-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
   flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.grain-list-actions select,
+.grain-list-actions button {
+  /* Sized to content (not flex-grow) — growing to consume exactly 100% of the row's width put the
+   * last button's edge within a couple of px of the panel's own edge, which read as clipped on
+   * some displays/font metrics even though it technically fit on others. Content sizing always
+   * leaves genuine slack before the edge, regardless of exact text metrics. */
+  flex: 0 0 auto;
 }
 
 .grain-list-actions button {
-  flex: 1 1 0;
-  min-width: 56px;
-}
-
-.add-grain-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  /* Tighter than the app-wide 6px 12px default — five items (type picker + 4 buttons) need to
+   * fit this one narrow panel width, and the default padding left barely any margin before the
+   * panel's edge on the last button. */
+  padding: 6px 8px;
 }
 
 /* --- Results panel --- */
@@ -788,7 +926,7 @@ button.active {
 }
 
 .results-panel-body > * {
-  flex: 1;
+  /* flex: 1; */
   min-height: 0;
   overflow-y: auto;
 }
@@ -895,6 +1033,13 @@ button.active {
   font-size: 13px;
 }
 
+/* Deliberately block flow, not a flex column: `.results-panel-body > *` already makes this panel
+ * itself `flex: 1; min-height: 0; overflow-y: auto`, so it scrolls as a whole when its content
+ * (table + consumed/remaining + slider) doesn't fit. Making it a flex container on top of that
+ * would turn its own children into flex items sharing that bounded height — and the grain table
+ * would lose that fight: `.grains-table-scroll`'s `overflow-x: auto` forces its `overflow-y` to
+ * compute as `auto` too per the CSS overflow spec, which zeroes a flex item's automatic minimum
+ * size, so it would get squashed down to a sliver instead of the panel scrolling normally. */
 .time-scrubber-panel {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -905,41 +1050,163 @@ button.active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin: 12px 0 8px;
   font-size: 13px;
 }
 
+/* Custom-styled range input: a flat filled-progress track (accent up to the thumb, plain border
+ * color past it) plus a rounded-square thumb, rather than the browser's unstyled default — the
+ * fill uses --slider-progress, set inline per render from the current step. */
 .time-slider {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--slider-progress, 0%),
+    var(--border) var(--slider-progress, 0%),
+    var(--border) 100%
+  );
+  outline: none;
+  cursor: pointer;
 }
 
-.time-scrubber-body {
+.time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 4px;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+
+.time-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.time-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.time-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+
+.time-slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.consumed-remaining {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.grains-results-table {
-  width: 100%;
-  border-collapse: collapse;
+.consumed-remaining-card {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.consumed-remaining-card h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  opacity: 0.75;
+  font-weight: 600;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
   font-size: 13px;
-  margin-top: 8px;
 }
 
-.grains-results-table th,
-.grains-results-table td {
-  text-align: left;
+.stat-row .stat-label {
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.stat-row .stat-value {
+  color: var(--text-h);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Grain columns can run wide (many grains), so the grid scrolls horizontally within its own box
+ * rather than pushing the rest of the panel/page wider. */
+.grains-table-scroll {
+  overflow-x: auto;
+}
+
+.grains-grid {
+  display: grid;
+  align-items: center;
+  font-size: 13px;
+  /* A block child normally staying at its container's width (not growing past it) even while its
+   * grid tracks' content overflows that box is exactly what breaks the sticky field-label column
+   * above: sticky's `left: 0` is relative to this grid's own box, so if that box stays narrower
+   * than the actual scrollable content, sticky gets clamped inside the narrow box instead of
+   * reaching the scroll container's true visible edge once scrolled partway. Growing the grid's
+   * own box to its content (min-width keeps it full-width when there's only a few grains, so
+   * `1fr` still spreads them out rather than left-packing) fixes sticky's containing block. */
+  width: max-content;
+  min-width: 100%;
+}
+
+.grains-grid > * {
+  /* Every cell paints its own opaque background (not just the sticky field-label column) so a
+   * scrolled-under grain thumbnail's <canvas> — which Chromium can promote to its own compositing
+   * layer — never shows through a neighboring cell's gap while scrolling; each cell fully covers
+   * its own area instead of leaving transparent space for anything behind it to bleed into. */
+  background: var(--bg);
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  vertical-align: middle;
+  white-space: nowrap;
 }
 
-.grains-results-table th {
+.grains-grid-header {
   color: var(--text);
   opacity: 0.75;
   font-weight: 500;
+}
+
+/* Field-label column stays put while grain columns scroll underneath it. A scrolled-under
+ * <canvas> (the grain thumbnails) tends to get its own GPU compositing layer in Chromium, and
+ * that layer can paint over this sticky column even with a higher z-index unless the column is
+ * forced into its own real stacking context — hence `isolation: isolate` alongside `z-index`,
+ * not z-index alone. */
+.grain-field-col {
+  position: sticky;
+  left: 0;
+  isolation: isolate;
+  z-index: 1;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
 }
 
 .alerts-table {
@@ -951,7 +1218,8 @@ button.active {
 .alerts-table th,
 .alerts-table td {
   text-align: left;
-  padding: 4px 8px;
+  padding: 10px 8px;
+  line-height: 1.3;
   border-bottom: 1px solid var(--border);
 }
 
@@ -962,11 +1230,11 @@ button.active {
 }
 
 .alert-error {
-  color: #fca5a5;
+  color: var(--danger);
 }
 
 .alert-warning {
-  color: #fcd34d;
+  color: var(--warning);
 }
 
 .summary-stats {

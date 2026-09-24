@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { assemblePolylines, type Segment } from '../physics/contours';
-import { contourAtLevel, regDistToLevel, type GrainPreview } from '../physics/preview';
+import { regDistToLevel, type GrainPreview } from '../physics/preview';
 
 interface Props {
   preview: GrainPreview | null;
@@ -15,6 +15,7 @@ interface Props {
   size?: number;
   /** false shows just the current core shape with no regression contours ("Face" tab). */
   showContours?: boolean;
+  className?: string;
 }
 
 function drawSegments(ctx: CanvasRenderingContext2D, segments: Segment[], dim: number, size: number, style: string, width: number) {
@@ -48,7 +49,7 @@ function drawSegments(ctx: CanvasRenderingContext2D, segments: Segment[], dim: n
   ctx.stroke();
 }
 
-export function GrainPreviewCanvas({ preview, regDist, diameter, size = 220, showContours = true }: Props) {
+export function GrainPreviewCanvas({ preview, regDist, diameter, size = 220, showContours = true, className }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // useLayoutEffect (not useEffect) so the canvas is repainted synchronously before the browser's
@@ -66,9 +67,18 @@ export function GrainPreviewCanvas({ preview, regDist, diameter, size = 220, sho
     ctx.clearRect(0, 0, size, size);
 
     if (!preview) {
-      ctx.fillStyle = 'var(--muted-text, #888)';
+      // Canvas fillStyle can't resolve CSS custom properties (unlike DOM/CSS elements) — the old
+      // `'var(--muted-text, #888)'` string is simply an invalid color, silently ignored, leaving
+      // fillStyle at its default black. Filling the same dark shade the successful render uses for
+      // "outside domain" (below) keeps this placeholder visually part of the same dark canvas
+      // aesthetic in both app themes, rather than the CSS background's flat white showing through
+      // and reading as a stray, unstyled card next to the (theme-colored) sticky field-label column.
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#8b8b96';
       ctx.font = '13px sans-serif';
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText('No preview', size / 2, size / 2);
       return;
     }
@@ -133,14 +143,14 @@ export function GrainPreviewCanvas({ preview, regDist, diameter, size = 220, sho
       });
     }
 
-    if (level !== undefined) {
-      // A precise edge on top of the erosion fill above. Note this can legitimately draw nothing
-      // right at full burnout — see contourAtLevel's doc comment — which is fine since the erosion
-      // fill (not this line) is what actually carries "how much is burned" once that happens.
-      const highlight = contourAtLevel(preview, level);
-      drawSegments(ctx, highlight, dim, size, '#1d4ed8', 2);
-    }
+    // if (level !== undefined) {
+    //   // A precise edge on top of the erosion fill above. Note this can legitimately draw nothing
+    //   // right at full burnout — see contourAtLevel's doc comment — which is fine since the erosion
+    //   // fill (not this line) is what actually carries "how much is burned" once that happens.
+    //   const highlight = contourAtLevel(preview, level);
+    //   drawSegments(ctx, highlight, dim, size, '#1d4ed8', 2);
+    // }
   }, [preview, regDist, diameter, size, showContours]);
 
-  return <canvas ref={canvasRef} width={size} height={size} style={{ borderRadius: 8, background: '#fff' }} />;
+  return <canvas ref={canvasRef} className={className} width={size} height={size} style={{ borderRadius: 8, background: '#18181b' }} />;
 }

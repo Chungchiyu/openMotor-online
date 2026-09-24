@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildGrain } from '../physics/grains';
-import type { PerforatedGrain } from '../physics/grains/base';
+import { PerforatedGrain } from '../physics/grains/base';
 import { computeGrainPreview } from '../physics/preview';
 import {
   defaultMotorConfig,
@@ -426,17 +426,22 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
   const builtGrain = useMemo(() => {
     if (!draftGrain) return null;
     try {
-      return buildGrain(draftGrain) as PerforatedGrain;
+      return buildGrain(draftGrain);
     } catch {
       return null;
     }
   }, [draftGrain]);
 
   const preview = useMemo(() => {
-    if (!builtGrain) return null;
+    // End Burner and Conical grains extend Grain directly, not PerforatedGrain — see the matching
+    // comment in TimeScrubberPanel.tsx. They have no 2D cross-section to raster, so there's
+    // intentionally no preview for them rather than a caught "not a function" exception standing
+    // in for that.
+    if (!builtGrain || !(builtGrain instanceof PerforatedGrain)) return null;
     try {
       return computeGrainPreview(builtGrain);
-    } catch {
+    } catch (e) {
+      console.error('Grain preview computation failed', e);
       return null;
     }
   }, [builtGrain]);
@@ -476,7 +481,9 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
                 Reset to Default
               </button>
             </div>
-            <ConfigForm config={draftConfig} onChange={setDraftConfig} />
+            <div className="property-editor-form">
+              <ConfigForm config={draftConfig} onChange={setDraftConfig} />
+            </div>
           </div>
           <ApplyCancelRow
             onApply={() => {
@@ -495,61 +502,59 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
       <FormValidityProvider>
         <div className="property-editor">
           <div className="property-editor-scroll">
-            <div className="property-editor-columns">
-              <div className="property-editor-form">
-                <h3>{draftGrain.type}</h3>
-                {draftGrain.type === 'BATES' && (
-                  <BatesForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'BATES', properties })} />
-                )}
-                {draftGrain.type === 'Star Grain' && (
-                  <StarForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Star Grain', properties })} />
-                )}
-                {draftGrain.type === 'Moon Burner' && (
-                  <MoonBurnerForm
-                    properties={draftGrain.properties}
-                    onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
-                  />
-                )}
-                {draftGrain.type === 'D Grain' && (
-                  <DGrainForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'D Grain', properties })} />
-                )}
-                {draftGrain.type === 'X Core' && (
-                  <XCoreForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'X Core', properties })} />
-                )}
-                {draftGrain.type === 'C Grain' && (
-                  <CGrainForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'C Grain', properties })} />
-                )}
-                {draftGrain.type === 'Finocyl' && (
-                  <FinocylForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Finocyl', properties })} />
-                )}
-                {draftGrain.type === 'Rod and Tube' && (
-                  <RodTubeForm
-                    properties={draftGrain.properties}
-                    onChange={(properties) => setDraftGrain({ type: 'Rod and Tube', properties })}
-                  />
-                )}
-                {draftGrain.type === 'End Burner' && (
-                  <EndBurnerForm
-                    properties={draftGrain.properties}
-                    onChange={(properties) => setDraftGrain({ type: 'End Burner', properties })}
-                  />
-                )}
-                {draftGrain.type === 'Conical' && (
-                  <ConicalForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Conical', properties })} />
-                )}
-                <ApplyCancelRow
-                  onApply={() => {
-                    onApplyGrain(selection.index, draftGrain);
-                    onClose();
-                  }}
-                  onCancel={onClose}
+            <h3>{draftGrain.type}</h3>
+            <div className="property-editor-form">
+              {draftGrain.type === 'BATES' && (
+                <BatesForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'BATES', properties })} />
+              )}
+              {draftGrain.type === 'Star Grain' && (
+                <StarForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Star Grain', properties })} />
+              )}
+              {draftGrain.type === 'Moon Burner' && (
+                <MoonBurnerForm
+                  properties={draftGrain.properties}
+                  onChange={(properties) => setDraftGrain({ type: 'Moon Burner', properties })}
                 />
-              </div>
-              <div className="property-editor-preview">
-                <GrainPreviewPanel preview={preview} grain={builtGrain} />
-              </div>
+              )}
+              {draftGrain.type === 'D Grain' && (
+                <DGrainForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'D Grain', properties })} />
+              )}
+              {draftGrain.type === 'X Core' && (
+                <XCoreForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'X Core', properties })} />
+              )}
+              {draftGrain.type === 'C Grain' && (
+                <CGrainForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'C Grain', properties })} />
+              )}
+              {draftGrain.type === 'Finocyl' && (
+                <FinocylForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Finocyl', properties })} />
+              )}
+              {draftGrain.type === 'Rod and Tube' && (
+                <RodTubeForm
+                  properties={draftGrain.properties}
+                  onChange={(properties) => setDraftGrain({ type: 'Rod and Tube', properties })}
+                />
+              )}
+              {draftGrain.type === 'End Burner' && (
+                <EndBurnerForm
+                  properties={draftGrain.properties}
+                  onChange={(properties) => setDraftGrain({ type: 'End Burner', properties })}
+                />
+              )}
+              {draftGrain.type === 'Conical' && (
+                <ConicalForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Conical', properties })} />
+              )}
+            </div>
+            <div className="property-editor-preview compact">
+              <GrainPreviewPanel preview={preview} grain={builtGrain} />
             </div>
           </div>
+          <ApplyCancelRow
+            onApply={() => {
+              onApplyGrain(selection.index, draftGrain);
+              onClose();
+            }}
+            onCancel={onClose}
+          />
         </div>
       </FormValidityProvider>
     );
