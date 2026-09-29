@@ -59,6 +59,12 @@ export function ResultsPanel({ result, running }: Props) {
     });
   };
 
+  const allGrainsSelected = numGrains > 0 && effectiveGrains.length === numGrains;
+  const someGrainsSelected = effectiveGrains.length > 0 && !allGrainsSelected;
+  const toggleAllGrains = () => {
+    setSelectedGrains(allGrainsSelected ? [] : Array.from({ length: numGrains }, (_, i) => i));
+  };
+
   return (
     <div className="results-panel">
       <div className="results-panel-header">
@@ -105,6 +111,17 @@ export function ResultsPanel({ result, running }: Props) {
               {numGrains > 1 && (
                 <fieldset>
                   <legend>Grains</legend>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={allGrainsSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someGrainsSelected;
+                      }}
+                      onChange={toggleAllGrains}
+                    />
+                    Select All
+                  </label>
                   {Array.from({ length: numGrains }, (_, i) => (
                     <label key={i}>
                       <input type="checkbox" checked={effectiveGrains.includes(i)} onChange={() => toggleGrain(i)} />
