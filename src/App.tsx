@@ -37,6 +37,8 @@ function AppInner() {
 
   const [selection, setSelection] = useState<Selection>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [ranDesign, setRanDesign] = useState<MotorDesign | null>(null);
+  const isDirty = result === null || design !== ranDesign;
   const [runProgress, setRunProgress] = useState<SimProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
@@ -200,7 +202,8 @@ function AppInner() {
     setError(null);
     cancelRef.current = false;
     setRunProgress({ phase: 'setup', fraction: 0 });
-    const motor = new Motor(design);
+    const runDesign = design;
+    const motor = new Motor(runDesign);
     try {
       const simResult = await motor.runSimulationChunked(
         (p) => setRunProgress(p),
@@ -208,6 +211,7 @@ function AppInner() {
       );
       if (simResult) {
         setResult(simResult);
+        setRanDesign(runDesign);
         if (simResult.alerts.length > 0) setShowAlerts(true);
       }
     } catch (e) {
@@ -282,6 +286,12 @@ function AppInner() {
         <span className="menu-bar-title">openMotor Online</span>
 
         <div className="menu-bar-right">
+          {isDirty && (
+            <span className="design-dirty-indicator" title="Design changed since last run">
+              <span className="dirty-dot" />
+              Needs re-run
+            </span>
+          )}
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <button className="primary run-button" onClick={() => void handleRun()} disabled={runProgress !== null}>
             {runProgress !== null ? 'Running…' : 'Run Simulation'}

@@ -212,6 +212,22 @@
   transform: translateX(14px);
 }
 
+.design-dirty-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.dirty-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  flex: none;
+}
+
 .about-dialog-backdrop {
   position: fixed;
   inset: 0;
