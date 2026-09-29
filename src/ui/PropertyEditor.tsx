@@ -7,6 +7,7 @@ import {
   type BatesGrainProperties,
   type CGrainProperties,
   type ConicalGrainProperties,
+  type CustomGrainProperties,
   type DGrainProperties,
   type EndBurnerProperties,
   type FinocylProperties,
@@ -23,6 +24,7 @@ import type { Selection } from './MotorBuilder';
 import { FormValidityProvider, useFormIsValid } from './FormValidityContext';
 import { GrainPreviewPanel } from './GrainPreviewPanel';
 import { NozzlePreview } from './NozzlePreview';
+import { PolygonEditor } from './PolygonEditor';
 import { CheckboxField, NumberField, SelectField } from './fields';
 
 const inhibitedOptions: { value: InhibitedEnds; label: string }[] = [
@@ -298,6 +300,26 @@ function ConicalForm({ properties, onChange }: { properties: ConicalGrainPropert
   );
 }
 
+function CustomGrainForm({ properties, onChange }: { properties: CustomGrainProperties; onChange: (p: CustomGrainProperties) => void }) {
+  return (
+    <>
+      <NumberField label="Diameter" unitKind="m" value={properties.diameter} onChange={(v) => onChange({ ...properties, diameter: v })} />
+      <NumberField label="Length" unitKind="m" value={properties.length} onChange={(v) => onChange({ ...properties, length: v })} />
+      <SelectField
+        label="Inhibited Ends"
+        value={properties.inhibitedEnds}
+        options={inhibitedOptions}
+        onChange={(v) => onChange({ ...properties, inhibitedEnds: v })}
+      />
+      <PolygonEditor
+        points={properties.points}
+        diameter={properties.diameter}
+        onChange={(points) => onChange({ ...properties, points })}
+      />
+    </>
+  );
+}
+
 function NozzleForm({ nozzle, onChange }: { nozzle: NozzleConfig; onChange: (n: NozzleConfig) => void }) {
   const expansion = nozzle.throat === 0 ? null : (nozzle.exit / nozzle.throat) ** 2;
   return (
@@ -542,6 +564,12 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
               )}
               {draftGrain.type === 'Conical' && (
                 <ConicalForm properties={draftGrain.properties} onChange={(properties) => setDraftGrain({ type: 'Conical', properties })} />
+              )}
+              {draftGrain.type === 'Custom Grain' && (
+                <CustomGrainForm
+                  properties={draftGrain.properties}
+                  onChange={(properties) => setDraftGrain({ type: 'Custom Grain', properties })}
+                />
               )}
             </div>
             <div className="property-editor-preview compact">

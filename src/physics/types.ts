@@ -85,6 +85,22 @@ export interface FinocylProperties {
   invertedFins: boolean;
 }
 
+/**
+ * A core shaped like an arbitrary closed polygon, drawn by hand or imported from a DXF file. Unlike
+ * Python's `CustomGrain` (motorlib/grains/custom.py), which stores `points` in whatever unit the
+ * user last drew/imported in plus a separate `dxfUnit` property, `points` here are always already
+ * converted to meters — consistent with every other length field in this file — so there's no
+ * per-grain unit to carry around. Only a single closed polygon is supported (Python's own multi-
+ * polygon "custom grains with multiple cores" support is marked experimental there too).
+ */
+export interface CustomGrainProperties {
+  diameter: number;
+  length: number;
+  inhibitedEnds: InhibitedEnds;
+  /** Closed polygon vertices, in meters, in the grain's own centered XY plane. */
+  points: [number, number][];
+}
+
 export type GrainConfig =
   | { type: 'BATES'; properties: BatesGrainProperties }
   | { type: 'Star Grain'; properties: StarGrainProperties }
@@ -95,7 +111,8 @@ export type GrainConfig =
   | { type: 'Finocyl'; properties: FinocylProperties }
   | { type: 'Rod and Tube'; properties: RodTubeGrainProperties }
   | { type: 'End Burner'; properties: EndBurnerProperties }
-  | { type: 'Conical'; properties: ConicalGrainProperties };
+  | { type: 'Conical'; properties: ConicalGrainProperties }
+  | { type: 'Custom Grain'; properties: CustomGrainProperties };
 
 export interface PropellantTab {
   minPressure: number;

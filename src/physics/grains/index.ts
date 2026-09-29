@@ -2,6 +2,7 @@ import type { GrainConfig } from '../types';
 import { BatesGrain } from './bates';
 import type { Grain } from './base';
 import { CGrain } from './cGrain';
+import { CustomGrain } from './customGrain';
 import { DGrain } from './dGrain';
 import { ConicalGrain } from './conical';
 import { EndBurningGrain } from './endBurner';
@@ -21,6 +22,7 @@ export { Finocyl } from './finocyl';
 export { RodTubeGrain } from './rodTube';
 export { EndBurningGrain } from './endBurner';
 export { ConicalGrain } from './conical';
+export { CustomGrain } from './customGrain';
 export { Grain, PerforatedGrain } from './base';
 export { FmmGrain } from './fmmGrain';
 
@@ -46,6 +48,8 @@ export function buildGrain(config: GrainConfig): Grain {
       return EndBurningGrain.fromProperties(config.properties);
     case 'Conical':
       return ConicalGrain.fromProperties(config.properties);
+    case 'Custom Grain':
+      return CustomGrain.fromProperties(config.properties);
     default: {
       const exhaustive: never = config;
       throw new Error(`Unknown grain type: ${JSON.stringify(exhaustive)}`);
@@ -64,6 +68,7 @@ export function grainToConfig(grain: Grain): GrainConfig {
   if (grain instanceof RodTubeGrain) return { type: 'Rod and Tube', properties: grain.toProperties() };
   if (grain instanceof EndBurningGrain) return { type: 'End Burner', properties: grain.toProperties() };
   if (grain instanceof ConicalGrain) return { type: 'Conical', properties: grain.toProperties() };
+  if (grain instanceof CustomGrain) return { type: 'Custom Grain', properties: grain.toProperties() };
   throw new Error('Unknown grain instance');
 }
 
@@ -136,9 +141,24 @@ export function defaultGrainConfig(type: GrainConfig['type']): GrainConfig {
         type: 'Conical',
         properties: { diameter: 0.069, length: 0.15, forwardCoreDiameter: 0.01, aftCoreDiameter: 0.03, inhibitedEnds: 'Neither' },
       };
+    case 'Custom Grain':
+      return {
+        type: 'Custom Grain',
+        properties: { diameter: 0.069, length: 0.15, inhibitedEnds: 'Neither', points: defaultHexagon(0.02) },
+      };
     default: {
       const exhaustive: never = type;
       throw new Error(`Unknown grain type: ${exhaustive}`);
     }
   }
+}
+
+/** A regular hexagon core, used as the starting shape for a newly added Custom Grain. */
+function defaultHexagon(circumradius: number): [number, number][] {
+  const points: [number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const theta = (Math.PI / 3) * i;
+    points.push([circumradius * Math.cos(theta), circumradius * Math.sin(theta)]);
+  }
+  return points;
 }

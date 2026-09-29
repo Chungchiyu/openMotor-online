@@ -812,6 +812,100 @@ button.active {
   gap: 8px;
 }
 
+.polygon-editor {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  grid-column: 1 / -1;
+}
+
+.polygon-editor-canvas-wrap {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.polygon-editor-canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.polygon-editor-bore {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 0.01;
+  stroke-dasharray: 0.02 0.02;
+}
+
+.polygon-editor-shape {
+  fill: var(--accent-bg);
+  stroke: var(--accent);
+  stroke-width: 0.012;
+}
+
+.polygon-editor-vertex {
+  fill: var(--accent);
+  stroke: var(--bg-raised);
+  stroke-width: 0.006;
+  cursor: grab;
+}
+
+.polygon-editor-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.polygon-editor-side {
+  flex: 1 1 220px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.polygon-editor-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.polygon-editor-table th {
+  text-align: left;
+  color: var(--text);
+  opacity: 0.75;
+  font-weight: normal;
+  padding: 2px 4px;
+}
+
+.polygon-editor-table td {
+  padding: 2px 4px;
+}
+
+.polygon-editor-table input[type='number'] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.polygon-editor-messages {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.polygon-editor-warning {
+  margin: 0;
+  font-size: 12px;
+  color: #e0a53e;
+}
+
 .tab-bar.small {
   gap: 0;
   flex-wrap: nowrap;

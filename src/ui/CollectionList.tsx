@@ -36,6 +36,7 @@ function describeGrain(g: GrainConfig): string {
   if (g.type === 'Conical') {
     return `${dia} ${len}, core ${(g.properties.forwardCoreDiameter * 1000).toFixed(1)}-${(g.properties.aftCoreDiameter * 1000).toFixed(1)}mm`;
   }
+  if (g.type === 'Custom Grain') return `${dia} ${len}, ${g.properties.points.length}-point polygon`;
   return `${dia} ${len}, offset ${(g.properties.coreOffset * 1000).toFixed(1)}mm`;
 }
 

@@ -201,6 +201,7 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
               { value: 'Rod and Tube', label: 'Rod and Tube' },
               { value: 'End Burner', label: 'End Burner' },
               { value: 'Conical', label: 'Conical' },
+              { value: 'Custom Grain', label: 'Custom Grain' },
             ]}
           />
           <button className="add-grain-btn" onClick={addGrain}>
