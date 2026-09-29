@@ -8,7 +8,8 @@ import {
   Tooltip,
   type ChartOptions,
 } from 'chart.js';
-import { useMemo } from 'react';
+import zoomPlugin from 'chartjs-plugin-zoom';
+import { useMemo, useRef } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   multiValueChannelMeta,
@@ -20,7 +21,7 @@ import {
 import { convert } from '../physics/units';
 import { useUnits } from './UnitsContext';
 
-ChartJS.register(LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(LinearScale, PointElement, LineElement, Title, Tooltip, Legend, zoomPlugin);
 
 export type ChannelKey = SingleValueChannel | MultiValueChannel;
 export type XChannelKey = 'time' | 'regression' | 'web';
@@ -55,6 +56,7 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
   // (SI) unit the simulation stores it in; this chart used to always plot raw SI values.
   const { unitFor } = useUnits();
   const xUnit = unitFor(xChannelUnit[xChannel]);
+  const chartRef = useRef<ChartJS<'line'>>(null);
 
   const data = useMemo(() => {
     if (!result) return { datasets: [] as object[] };
@@ -127,7 +129,14 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
       maintainAspectRatio: false,
       animation: false,
       scales,
-      plugins: { legend: { position: 'top' } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top' },
+        zoom: {
+          pan: { enabled: true, mode: 'xy' },
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+        },
+      },
     };
   }, [xChannel, xUnit, yChannels, unitFor]);
 
@@ -136,8 +145,19 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
   }
 
   return (
-    <div style={{ height: '100%', minHeight: 280 }}>
-      <Line data={data as never} options={options} />
+    <div style={{ height: '100%', minHeight: 280, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="chart-reset-zoom" onClick={() => chartRef.current?.resetZoom()}>
+          Reset zoom
+        </button>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <Line
+          ref={chartRef}
+          data={data as never}
+          options={options}
+        />
+      </div>
     </div>
   );
 }

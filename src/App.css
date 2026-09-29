@@ -1216,6 +1216,12 @@ button.active {
   border-radius: 8px;
 }
 
+.chart-reset-zoom {
+  padding: 2px 8px;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
 .running-banner {
   color: var(--accent);
   font-size: 13px;
