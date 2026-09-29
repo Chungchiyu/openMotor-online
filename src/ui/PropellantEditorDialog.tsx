@@ -11,6 +11,20 @@ interface Props {
   onClose: () => void;
 }
 
+// These OS paths have long stretches with no spaces, which CSS won't wrap on its own — a
+// zero-width space after every separator gives the tooltip box a place to break each line, so it
+// can size itself to its longest line instead of either overflowing or collapsing to min-content.
+function withBreakPoints(path: string): string {
+  return path.replace(/([\\/])/g, '$1​');
+}
+
+const PROPELLANTS_YAML_LOCATION_HINT = [
+  'The desktop app keeps this file at:',
+  withBreakPoints('Windows: %LOCALAPPDATA%\\openMotor\\openMotor\\propellants.yaml'),
+  withBreakPoints('macOS: ~/Library/Application Support/openMotor/propellants.yaml'),
+  withBreakPoints('Linux: ~/.local/share/openMotor/propellants.yaml'),
+].join('\n');
+
 function blankPropellant(existingNames: string[]): PropellantConfig {
   return {
     name: uniqueName(
@@ -76,7 +90,7 @@ export function PropellantEditorDialog({ onClose }: Props) {
   };
 
   const handleExportLibrary = () => {
-    downloadTextFile(exportPropellantsRic(library), 'propellants.ric', 'application/x-yaml');
+    downloadTextFile(exportPropellantsRic(library), 'propellants.yaml', 'application/x-yaml');
   };
 
   const handleImportLibraryClick = () => importInputRef.current?.click();
@@ -94,7 +108,7 @@ export function PropellantEditorDialog({ onClose }: Props) {
       const skipped = imported.length - toAdd.length;
       setError(skipped > 0 ? `Imported ${toAdd.length} new propellant(s); skipped ${skipped} already in your library.` : null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read that .ric file.');
+      setError(e instanceof Error ? e.message : 'Could not read that .yaml file.');
     }
   };
 
@@ -122,12 +136,16 @@ export function PropellantEditorDialog({ onClose }: Props) {
               </button>
             </div>
             <div className="propellant-editor-list-actions">
-              <button onClick={handleImportLibraryClick}>Import .ric…</button>
-              <button onClick={handleExportLibrary}>Export .ric</button>
+              <button onClick={handleImportLibraryClick} className="has-instant-tooltip" data-tooltip={PROPELLANTS_YAML_LOCATION_HINT}>
+                Import…
+              </button>
+              <button onClick={handleExportLibrary} className="has-instant-tooltip" data-tooltip={PROPELLANTS_YAML_LOCATION_HINT}>
+                Export
+              </button>
               <input
                 ref={importInputRef}
                 type="file"
-                accept=".ric"
+                accept=".yaml,.yml"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   const file = e.target.files?.[0];

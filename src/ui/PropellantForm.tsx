@@ -66,11 +66,20 @@ export function PropellantForm({ propellant, onChange }: { propellant: Propellan
         </button>
       </div>
 
-      <label className="field">
-        <span className="field-label">Name</span>
-        <input type="text" value={propellant.name} onChange={(e) => onChange({ ...propellant, name: e.target.value })} />
-      </label>
-      <NumberField label="Density" unitKind="kg/m^3" value={propellant.density} onChange={(v) => onChange({ ...propellant, density: v })} />
+      <div className="propellant-top-fields">
+        <label className="field">
+          <span className="field-label">Name</span>
+          <input
+            type="text"
+            value={propellant.name}
+            // Sized to what's typed (with a small floor), matching NumberField's auto-sized
+            // inputs — see the CSS max-width for the long-name cap.
+            size={Math.max(propellant.name.length, 12)}
+            onChange={(e) => onChange({ ...propellant, name: e.target.value })}
+          />
+        </label>
+        <NumberField label="Density" unitKind="kg/m^3" value={propellant.density} onChange={(v) => onChange({ ...propellant, density: v })} />
+      </div>
 
       <h4>Burn rate vs. pressure</h4>
       <PropellantBurnRateGraph propellant={propellant} />

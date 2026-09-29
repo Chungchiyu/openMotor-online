@@ -318,10 +318,77 @@
   flex: 1;
 }
 
+/* A CSS-only tooltip (no JS, no transition-delay) so it appears the instant the pointer lands,
+ * unlike the native `title` attribute's OS-controlled hover delay. */
+.has-instant-tooltip {
+  position: relative;
+}
+
+.has-instant-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  background: var(--bg-raised);
+  color: var(--text-h);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: pre-line;
+  width: max-content;
+  max-width: 320px;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.has-instant-tooltip:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
 .propellant-editor-form {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+}
+
+/* Name + Density: the same shared-edge field grid as .propellant-tab-editor below (and
+ * .property-editor-form elsewhere) — see the comment there for why a plain flex row per field
+ * doesn't keep the input boxes themselves aligned once one field has a trailing unit label. */
+.propellant-top-fields {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 8px;
+}
+
+.propellant-top-fields .field {
+  display: contents;
+}
+
+.propellant-top-fields .field-input {
+  justify-self: end;
+}
+
+.propellant-top-fields .field input[type='number'] {
+  width: auto;
+}
+
+/* The Name field is the one free-text input in this grid — sized to what's typed (see the `size`
+ * prop in PropellantForm.tsx), same idea as NumberField's auto-sized number inputs, but capped so
+ * an implausibly long name can't stretch the dialog instead of just scrolling within the box. */
+.propellant-top-fields .field input[type='text'] {
+  width: auto;
+  max-width: 200px;
 }
 
 .preferences-dialog {
@@ -780,18 +847,37 @@ button.active {
   margin-bottom: 8px;
 }
 
+/* Same "labels in one column, inputs flush right on a shared edge" grid as .property-editor-form
+ * below — a plain flex row per field instead would right-align each field's input+unit to its OWN
+ * row's edge, so a field with a unit label (e.g. "kg/m^3") ends its actual input box earlier than
+ * a neighboring unit-less field, staggering the boxes instead of lining them up. */
 .propellant-tab-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 6px;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px;
   margin-bottom: 8px;
 }
 
+.propellant-tab-editor .field {
+  display: contents;
+}
+
+.propellant-tab-editor .field-input {
+  justify-self: end;
+}
+
+.propellant-tab-editor .field input[type='number'] {
+  width: auto;
+}
+
 .remove-tab-button {
-  align-self: flex-start;
+  grid-column: 1 / -1;
+  justify-self: start;
   font-size: 12px;
 }
 
