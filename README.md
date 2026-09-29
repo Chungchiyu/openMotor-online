@@ -24,10 +24,11 @@ the physics engine is a from-scratch TypeScript port of openMotor's Python `moto
   (Graph/Grains/Alerts, with full axis/channel selection and a per-grain results table), a 4-tab
   grain preview (Face/Regression/Area Graph/Alerts) with a rainbow-gradient regression contour
   overlay, and a nozzle profile preview — all modeled on the original desktop app's actual layout.
-- **Import/export:** JSON (this app's own save format, with autosave + a "recent files" list), CSV
-  and RASP `.eng` export of simulation results, BurnSim 3.0 (`.bsx`) import/export (BATES and Moon
-  Burner only — Star Grain has no BurnSim equivalent in the original either), and PNG export of the
-  results graph. No `.ric`/YAML file compatibility or DXF import yet.
+- **Import/export:** `.ric` (YAML, byte-for-byte compatible with the desktop app's own save format,
+  including the propellant library's `propellants.yaml`) with an IndexedDB-backed File Manager and
+  autosave on top, CSV and RASP `.eng` export of simulation results, BurnSim 3.0 (`.bsx`)
+  import/export (BATES and Moon Burner only — Star Grain has no BurnSim equivalent in the original
+  either), and PNG export of the results graph. No DXF import yet.
 - **Simulation UX:** a real progress bar with a working Cancel button — the run yields to the
   browser before any work starts (so the dialog is guaranteed to paint immediately, even for a
   design whose FMM grain setup alone can take seconds), yields between each grain's setup too, and

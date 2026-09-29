@@ -1,21 +1,16 @@
 /**
- * Save/load for motor designs: a localStorage autosave (so a reload doesn't lose work) plus manual
- * JSON export/import for backup and sharing — see the design doc for why both exist.
+ * Save/load for motor designs: just a localStorage autosave, so a reload doesn't lose work. Stored
+ * as `.ric`'s YAML (via exportMotorRic/importMotorRic) rather than plain JSON, so the app has one
+ * motor-design format everywhere instead of a separate one just for this.
  */
 import type { MotorDesign } from './physics/types';
+import { importMotorRic, exportMotorRic } from './ric';
 
 const STORAGE_KEY = 'openmotor-online:design:v1';
-const SAVE_FORMAT_VERSION = 1;
-
-interface SaveFile {
-  formatVersion: number;
-  design: MotorDesign;
-}
 
 export function autosave(design: MotorDesign): void {
   try {
-    const payload: SaveFile = { formatVersion: SAVE_FORMAT_VERSION, design };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    window.localStorage.setItem(STORAGE_KEY, exportMotorRic(design));
   } catch {
     // localStorage can throw in private-browsing/blocked-storage contexts; autosave is a
     // convenience, not a guarantee, so failing silently is fine here.
@@ -23,18 +18,28 @@ export function autosave(design: MotorDesign): void {
 }
 
 export function loadAutosave(): MotorDesign | null {
+  let raw: string | null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SaveFile;
-    return parsed.design ?? null;
+    raw = window.localStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
+  }
+  if (!raw) return null;
+  try {
+    return importMotorRic(raw).design;
+  } catch {
+    // Autosaves written before this app switched to `.ric`/YAML are plain JSON — fall back to
+    // that once, so upgrading past this point doesn't discard whatever the user had in progress.
+    try {
+      return (JSON.parse(raw) as { design?: MotorDesign }).design ?? null;
+    } catch {
+      return null;
+    }
   }
 }
 
 /** Triggers a browser download of `content` as `filename` — the shared mechanism behind every
- * export (design JSON, .eng, .csv, .bsx, chart PNG). */
+ * export (.ric, .eng, .csv, .bsx, chart PNG). */
 export function downloadTextFile(content: string, filename: string, mimeType = 'text/plain'): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -43,17 +48,6 @@ export function downloadTextFile(content: string, filename: string, mimeType = '
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-export function downloadDesign(design: MotorDesign, filename = 'motor.json'): void {
-  const payload: SaveFile = { formatVersion: SAVE_FORMAT_VERSION, design };
-  downloadTextFile(JSON.stringify(payload, null, 2), filename, 'application/json');
-}
-
-export function parseDesignFile(text: string): MotorDesign {
-  const parsed = JSON.parse(text) as SaveFile | MotorDesign;
-  if ('design' in parsed && 'formatVersion' in parsed) return parsed.design;
-  return parsed as MotorDesign;
 }
 
 const OPEN_RECORD_KEY = 'openmotor-online:openRecordId:v1';

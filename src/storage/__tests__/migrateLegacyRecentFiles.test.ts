@@ -1,12 +1,21 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defaultMotorConfig, defaultNozzle, type MotorDesign } from '../../physics/types';
-import { addRecentFile } from '../../recentFiles';
+import type { RecentFileEntry } from '../../recentFiles';
 import { listDesignRecords, resetDesignStoreForTests } from '../designStore';
 import { migrateLegacyRecentFilesIfNeeded } from '../migrateLegacyRecentFiles';
 
+const LEGACY_RECENT_FILES_KEY = 'openmotor-online:recentFiles:v1';
+
 function blankDesign(): MotorDesign {
   return { grains: [], propellant: null, nozzle: defaultNozzle(), config: defaultMotorConfig() };
+}
+
+// recentFiles.ts no longer exposes a writer (the app only reads its legacy entries for this
+// migration now), so seed the same localStorage shape it used to write directly.
+function seedLegacyRecentFile(name: string, design: MotorDesign): void {
+  const entry: RecentFileEntry = { name, savedAt: Date.now(), design };
+  window.localStorage.setItem(LEGACY_RECENT_FILES_KEY, JSON.stringify([entry]));
 }
 
 beforeEach(async () => {
@@ -21,7 +30,7 @@ beforeEach(async () => {
 
 describe('migrateLegacyRecentFilesIfNeeded', () => {
   it('imports old recentFiles entries into the design store, once', async () => {
-    addRecentFile('old-motor.json', blankDesign());
+    seedLegacyRecentFile('old-motor.json', blankDesign());
     await migrateLegacyRecentFilesIfNeeded();
     expect((await listDesignRecords()).map((r) => r.name)).toEqual(['old-motor.json']);
 

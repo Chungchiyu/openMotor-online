@@ -7,15 +7,7 @@ import { useHistory } from './history';
 import { Motor, type SimProgress } from './physics/motor';
 import type { SimulationResult } from './physics/simResult';
 import { defaultMotorConfig, defaultNozzle, type MotorDesign } from './physics/types';
-import {
-  autosave,
-  downloadDesign,
-  downloadTextFile,
-  loadAutosave,
-  loadOpenRecordId,
-  parseDesignFile,
-  saveOpenRecordId,
-} from './persistence';
+import { autosave, downloadTextFile, loadAutosave, loadOpenRecordId, saveOpenRecordId } from './persistence';
 import { exportMotorRic, importMotorRic } from './ric';
 import { createDesignRecord, getDesignRecord, updateDesignRecord, type DesignRecord } from './storage/designStore';
 import { migrateLegacyRecentFilesIfNeeded } from './storage/migrateLegacyRecentFiles';
@@ -55,7 +47,6 @@ function AppInner() {
   const [openRecord, setOpenRecord] = useState<DesignRecord | null>(null);
 
   const cancelRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const burnsimInputRef = useRef<HTMLInputElement>(null);
   const ricInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,18 +100,6 @@ function AppInner() {
       setOpenRecord(await updateDesignRecord(openRecord.id, { design }));
     } else {
       await handleSaveAsNew();
-    }
-  };
-
-  const handleLoadClick = () => fileInputRef.current?.click();
-
-  const handleFileSelected = async (file: File) => {
-    try {
-      const text = await file.text();
-      const loaded = parseDesignFile(text);
-      loadDesign(loaded);
-    } catch {
-      setError('Could not read that file — is it a valid openMotor Online design?');
     }
   };
 
@@ -253,13 +232,11 @@ function AppInner() {
             </div>
             <div className="tools-dropdown-group">
               <div className="tools-dropdown-heading">Import</div>
-              <button onClick={handleLoadClick}>Design File (.json)…</button>
               <button onClick={handleImportRicClick}>.ric File…</button>
               <button onClick={handleImportBurnSimClick}>BurnSim File…</button>
             </div>
             <div className="tools-dropdown-group">
               <div className="tools-dropdown-heading">Export</div>
-              <button onClick={() => downloadDesign(design, 'motor.json')}>Design File (.json)</button>
               <button onClick={handleExportRic}>.ric File</button>
               <button onClick={handleExportCsv}>CSV File</button>
               <button onClick={() => setShowEngExport(true)} disabled={!result}>
@@ -311,17 +288,6 @@ function AppInner() {
           </button>
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFileSelected(file);
-            e.target.value = '';
-          }}
-        />
         <input
           ref={burnsimInputRef}
           type="file"
