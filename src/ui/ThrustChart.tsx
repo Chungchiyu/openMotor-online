@@ -145,7 +145,7 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
   }
 
   return (
-    <div style={{ height: '100%', minHeight: 280, display: 'flex', flexDirection: 'column' }}>
+    <div className="chart-aspect-box" style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button className="chart-reset-zoom" onClick={() => chartRef.current?.resetZoom()}>
           Reset zoom

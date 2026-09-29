@@ -658,7 +658,9 @@ button.active {
    * instead of being capped, breaking the anchor-list-to-bottom layout below. */
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(320px, 480px) 1fr;
+  /* clamp(), not a fixed minmax() track, so the left/right ratio scales continuously with the
+   * viewport instead of snapping between 320px and 480px right at this breakpoint's edges. */
+  grid-template-columns: clamp(320px, 28vw, 480px) 1fr;
   gap: 0;
 }
 
@@ -1278,10 +1280,29 @@ button.active {
   white-space: nowrap;
 }
 
+/* The envelope the chart is allowed to grow into as the window resizes. Everything else in this
+ * panel (axis fieldsets, grain list, results table, stats) is free to stretch and reflow with the
+ * window, but the chart itself keeps a fixed aspect ratio (see .chart-aspect-box) instead of being
+ * stretched into whatever odd rectangle is left over, so it centers and letterboxes here instead.
+ * `container-type: size` turns this box into the reference for the `cqw`/`cqh` units below — plain
+ * flexbox (`align-items`/`flex-grow`) can only resolve the aspect ratio against ONE axis (whichever
+ * one it makes definite first) and clips or distorts on the other depending on which axis binds. */
 .graph-tab-chart {
   flex: 1;
   min-width: 280px;
   min-height: 0;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-aspect-box {
+  aspect-ratio: 16 / 9;
+  /* The narrower of "full container width" and "the width that hits 16:9 at full container
+   * height" — whichever axis is the tighter fit wins, and `aspect-ratio` derives the other axis
+   * from it, so this always fits both dimensions without ever distorting the ratio. */
+  width: min(100cqw, calc(100cqh * 16 / 9));
 }
 
 @media (max-width: 900px) {
