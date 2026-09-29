@@ -1,3 +1,4 @@
+import { Select } from './Select';
 import { quantityTypes, useUnits } from './UnitsContext';
 
 interface Props {
@@ -33,16 +34,15 @@ export function PreferencesDialog({ onClose }: Props) {
             />
           </label>
           {quantityTypes().map(({ canonical, label, options }) => (
-            <label className="field" key={canonical}>
+            <div className="field" key={canonical}>
               <span className="field-label">{label}</span>
-              <select value={prefs[canonical] ?? canonical} onChange={(e) => setUnit(canonical, e.target.value)}>
-                {options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Select
+                value={prefs[canonical] ?? canonical}
+                onChange={(o) => setUnit(canonical, o)}
+                options={options.map((o) => ({ value: o, label: o }))}
+                ariaLabel={label}
+              />
+            </div>
           ))}
         </div>
       </div>

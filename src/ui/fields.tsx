@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { convert } from '../physics/units';
 import { useFieldValidity } from './FormValidityContext';
+import { Select } from './Select';
 import { useUnits } from './UnitsContext';
 
 function roundForDisplay(value: number): number {
@@ -93,16 +94,12 @@ interface SelectFieldProps<T extends string> {
 
 export function SelectField<T extends string>({ label, value, options, onChange }: SelectFieldProps<T>) {
   return (
-    <label className="field">
+    // A plain div, not <label> — see Select's ariaLabel doc comment for why wrapping it in <label>
+    // breaks click-to-select (the browser forwards a second click to the trigger, reopening it).
+    <div className="field">
       <span className="field-label">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value as T)}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Select value={value} options={options} onChange={onChange} ariaLabel={label} />
+    </div>
   );
 }
 

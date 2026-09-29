@@ -5,6 +5,7 @@ import { CollectionList } from './CollectionList';
 import { PropellantEditorDialog } from './PropellantEditorDialog';
 import { usePropellantLibrary } from './PropellantLibraryContext';
 import { PropertyEditor } from './PropertyEditor';
+import { Select } from './Select';
 
 export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | null;
 
@@ -134,25 +135,19 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
         <hr />
 
         <div className="propellant-row">
-          <label className="field">
+          <div className="field">
             <span className="field-label">Propellant</span>
-            <select
+            <Select
               value={design.propellant?.name ?? ''}
-              onChange={(e) => {
-                const propellant = library.find((p) => p.name === e.target.value) ?? null;
+              placeholder="Select a propellant…"
+              options={library.map((p) => ({ value: p.name, label: p.name }))}
+              ariaLabel="Propellant"
+              onChange={(name) => {
+                const propellant = library.find((p) => p.name === name) ?? null;
                 onDesignChange((d) => ({ ...d, propellant }));
               }}
-            >
-              <option value="" disabled>
-                Select a propellant…
-              </option>
-              {library.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <button onClick={() => setShowPropellantEditor(true)}>Propellant Editor</button>
         </div>
 
@@ -192,18 +187,22 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
         />
 
         <div className="grain-list-actions">
-          <select value={newGrainType} onChange={(e) => setNewGrainType(e.target.value as GrainConfig['type'])}>
-            <option value="BATES">BATES</option>
-            <option value="Star Grain">Star Grain</option>
-            <option value="Moon Burner">Moon Burner</option>
-            <option value="D Grain">D Grain</option>
-            <option value="X Core">X Core</option>
-            <option value="C Grain">C Grain</option>
-            <option value="Finocyl">Finocyl</option>
-            <option value="Rod and Tube">Rod and Tube</option>
-            <option value="End Burner">End Burner</option>
-            <option value="Conical">Conical</option>
-          </select>
+          <Select
+            value={newGrainType}
+            onChange={setNewGrainType}
+            options={[
+              { value: 'BATES', label: 'BATES' },
+              { value: 'Star Grain', label: 'Star Grain' },
+              { value: 'Moon Burner', label: 'Moon Burner' },
+              { value: 'D Grain', label: 'D Grain' },
+              { value: 'X Core', label: 'X Core' },
+              { value: 'C Grain', label: 'C Grain' },
+              { value: 'Finocyl', label: 'Finocyl' },
+              { value: 'Rod and Tube', label: 'Rod and Tube' },
+              { value: 'End Burner', label: 'End Burner' },
+              { value: 'Conical', label: 'Conical' },
+            ]}
+          />
           <button className="add-grain-btn" onClick={addGrain}>
             + Add Grain
           </button>

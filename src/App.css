@@ -453,6 +453,99 @@ select {
   color: var(--text-h);
 }
 
+/* Custom replacement for native <select> (see Select.tsx) — the trigger mirrors the plain <select>
+ * rule above, and the popup mirrors .menu-dropdown's panel/hover treatment, so this reads as the
+ * same control everywhere instead of two different dropdown styles. */
+/* inline-grid + every direct child sharing grid-area 1/1 (below) stacks the real trigger on top of
+ * an invisible copy of every option — the grid column then auto-sizes to the widest of all of them,
+ * so the control's width reflects the longest possible label instead of jumping around to match
+ * whichever option happens to be selected right now. */
+.select-root {
+  position: relative;
+  display: inline-grid;
+}
+
+.select-trigger {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: inherit;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+  width: 100%;
+}
+
+.select-trigger:hover:not(:disabled) {
+  border-color: var(--accent-border);
+}
+
+.select-placeholder {
+  color: var(--text);
+}
+
+.select-caret {
+  font-size: 10px;
+  color: var(--text);
+  flex: none;
+}
+
+/* Invisible stand-ins for every option, same box model as .select-trigger (see Select.tsx) —
+ * present only so the grid column above picks up their width. */
+.select-sizer {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.select-sizer .select-trigger {
+  border-color: transparent;
+  background: transparent;
+}
+
+.select-listbox {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin: 2px 0 0;
+  padding: 4px;
+  list-style: none;
+  min-width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.select-listbox.select-listbox-up {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 2px;
+}
+
+.select-option {
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-h);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.select-option.highlighted {
+  background: var(--accent-bg);
+}
+
 /* A row of related action buttons (Up/Down/Edit/Copy/Delete, Apply/Cancel, New/Delete, …) reads
  * as one consistent bar when every button in it shares the row's width evenly, instead of each
  * being sized to its own label and leaving a ragged mix of widths. */
