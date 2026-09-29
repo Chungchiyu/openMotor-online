@@ -144,7 +144,7 @@ export function TimeScrubberPanel({ result }: Props) {
             </div>
           ))}
 
-          <div className="grain-field-col">Cross-section</div>
+          <div className="grain-field-col grain-crosssection-col">Cross-section</div>
           {result.grains.map((grain, gid) => {
             const regression = result.multiChannels.regression[stepIndex]?.[gid] ?? 0;
             return (

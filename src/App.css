@@ -1496,13 +1496,17 @@ button.active {
   background: var(--bg);
   border-right: 1px solid var(--border);
 }
-.grains-grid > :nth-child(1) {
-  /* Empty (no text), so its intrinsic content height is shorter than the header cells beside it;
-   * without stretching, `align-items: center` on the grid centers its shorter box within the row
-   * track, leaving its border-bottom above the other header cells' border-bottom. */
+.grain-field-col:not(.grain-crosssection-col) {
+  /* Every other field-label cell's own text is no taller than its row's value cells, but the
+   * empty header cell and short single-line labels can still fall a hair short of the row's
+   * tallest cell; without stretching, `align-items: center` centers its shorter box within the
+   * row track, leaving its background/border-bottom short of the rest of the row. */
   align-self: stretch;
 }
-.grains-grid > :nth-child(19) {
+.grain-crosssection-col {
+  /* This row's other cells are 96px-tall preview canvases, much taller than this label's own
+   * text; without stretching, `align-items: center` on the grid centers this shorter box within
+   * the row track, leaving its background/border-bottom short of the canvas cells' full height. */
   align-self: stretch;
   display: flex;
   align-items: center;
