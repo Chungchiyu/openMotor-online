@@ -25,6 +25,12 @@ function formatDate(ms: number): string {
   return new Date(ms).toLocaleString();
 }
 
+type SortKey = 'name' | 'tags' | 'updatedAt';
+
+function sameTags(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((t, i) => t === b[i]);
+}
+
 export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSavedAsNew }: Props) {
   const [records, setRecords] = useState<DesignRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +38,18 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'updatedAt' ? 'desc' : 'asc');
+    }
+  };
 
   const refresh = async () => {
     setRecords(await listDesignRecords());
@@ -49,12 +66,18 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
   }, [records]);
 
   const visibleRecords = useMemo(() => {
-    return (records ?? []).filter((r) => {
+    const filtered = (records ?? []).filter((r) => {
       if (tagFilter && !r.tags.includes(tagFilter)) return false;
       if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [records, search, tagFilter]);
+    const sign = sortDir === 'asc' ? 1 : -1;
+    return filtered.sort((a, b) => {
+      if (sortKey === 'name') return sign * a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      if (sortKey === 'tags') return sign * a.tags.join(', ').localeCompare(b.tags.join(', '), undefined, { sensitivity: 'base' });
+      return sign * (a.updatedAt - b.updatedAt);
+    });
+  }, [records, search, tagFilter, sortKey, sortDir]);
 
   const handleSaveCurrentAsNew = async () => {
     const name = window.prompt('Save the current design as:', 'motor');
@@ -84,8 +107,10 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
 
   const commitRename = async (id: string) => {
     setRenamingId(null);
-    if (!renameDraft.trim()) return;
-    await updateDesignRecord(id, { name: renameDraft.trim() });
+    const name = renameDraft.trim();
+    const record = records?.find((r) => r.id === id);
+    if (!name || !record || record.name === name) return;
+    await updateDesignRecord(id, { name });
     await refresh();
   };
 
@@ -94,6 +119,7 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
       .split(',')
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
+    if (sameTags(tags, record.tags)) return;
     await updateDesignRecord(record.id, { tags });
     await refresh();
   };
@@ -170,11 +196,29 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
             <div className="file-manager-empty">{records.length === 0 ? 'No saved designs yet.' : 'No designs match this filter.'}</div>
           ) : (
             <table>
+              <colgroup>
+                <col className="file-manager-col-name" />
+                <col className="file-manager-col-tags" />
+                <col className="file-manager-col-saved" />
+                <col />
+              </colgroup>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Tags</th>
-                  <th>Last saved</th>
+                  <th>
+                    <button className="file-manager-sort-button" onClick={() => toggleSort('name')}>
+                      Name{sortKey === 'name' && (sortDir === 'asc' ? ' ▲' : ' ▼')}
+                    </button>
+                  </th>
+                  <th>
+                    <button className="file-manager-sort-button" onClick={() => toggleSort('tags')}>
+                      Tags{sortKey === 'tags' && (sortDir === 'asc' ? ' ▲' : ' ▼')}
+                    </button>
+                  </th>
+                  <th>
+                    <button className="file-manager-sort-button" onClick={() => toggleSort('updatedAt')}>
+                      Last saved{sortKey === 'updatedAt' && (sortDir === 'asc' ? ' ▲' : ' ▼')}
+                    </button>
+                  </th>
                   <th />
                 </tr>
               </thead>
@@ -184,6 +228,7 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
                     <td>
                       {renamingId === record.id ? (
                         <input
+                          className="file-manager-rename-input"
                           autoFocus
                           value={renameDraft}
                           onChange={(e) => setRenameDraft(e.target.value)}
@@ -211,12 +256,14 @@ export function FileManagerDialog({ currentDesign, onClose, onOpenDesign, onSave
                       />
                     </td>
                     <td>{formatDate(record.updatedAt)}</td>
-                    <td className="file-manager-row-actions">
-                      <button onClick={() => onOpenDesign(record)}>Open</button>
-                      <button onClick={() => startRename(record)}>Rename</button>
-                      <button onClick={() => void handleDuplicate(record)}>Duplicate</button>
-                      <button onClick={() => handleExport(record)}>Export .ric</button>
-                      <button onClick={() => void handleDelete(record)}>Delete</button>
+                    <td>
+                      <div className="file-manager-row-actions">
+                        <button onClick={() => onOpenDesign(record)}>Open</button>
+                        <button onClick={() => startRename(record)}>Rename</button>
+                        <button onClick={() => void handleDuplicate(record)}>Duplicate</button>
+                        <button onClick={() => handleExport(record)}>Export .ric</button>
+                        <button onClick={() => void handleDelete(record)}>Delete</button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1412,6 +1412,13 @@ button.active {
 .file-manager-search {
   flex: 1;
   min-width: 0;
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  box-sizing: border-box;
 }
 
 .file-manager-tag-filters {
@@ -1445,15 +1452,50 @@ button.active {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
+}
+
+/* The actions cell holds 5 buttons on one line, which need ~46% of the table's width at the
+ * dialog's default size — Name/Tags/Saved get the rest, sized to their typical content rather
+ * than split evenly, so the action buttons aren't left to wrap onto multiple lines. */
+.file-manager-list col.file-manager-col-name {
+  width: 22%;
+}
+
+.file-manager-list col.file-manager-col-tags {
+  width: 16%;
+}
+
+.file-manager-list col.file-manager-col-saved {
+  width: 12%;
 }
 
 .file-manager-list th {
   text-align: left;
-  padding: 8px 8px;
+  padding: 0;
   border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.file-manager-sort-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 8px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  font: inherit;
+  font-weight: 500;
   color: var(--text);
   opacity: 0.75;
-  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.file-manager-sort-button:hover {
+  opacity: 1;
+  color: var(--text-h);
 }
 
 .file-manager-list td {
@@ -1462,17 +1504,27 @@ button.active {
   vertical-align: middle;
 }
 
-.file-manager-tags-input {
+.file-manager-tags-input,
+.file-manager-rename-input {
   width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
 }
 
 .file-manager-row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
-  white-space: nowrap;
 }
 
 .link-button {
+  display: block;
+  width: 100%;
   background: none;
   border: none;
   padding: 0;
@@ -1480,6 +1532,9 @@ button.active {
   cursor: pointer;
   text-align: left;
   font-size: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .link-button:hover {
