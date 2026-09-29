@@ -38,18 +38,20 @@ export function TimeScrubberPanel({ result }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // A plain vertical mouse-wheel scroll pans this strip horizontally — without it, an ordinary
-  // wheel gesture over a horizontally-scrolling box does nothing (it's not tall enough to have its
-  // own vertical overflow) and the browser sends the scroll to whatever ancestor *does* scroll
-  // vertically instead, which reads as "scrolling does nothing" here. Native shift+wheel/trackpad
-  // horizontal swipes already arrive as deltaX and are left alone (early return) so they aren't
-  // double-handled.
+  // A plain vertical mouse-wheel scroll pans this strip horizontally when it's over a grain
+  // column — an ordinary wheel gesture over a horizontally-scrolling box otherwise does nothing
+  // useful there (each grain column is too narrow to need its own vertical scroll), which reads as
+  // "scrolling does nothing". Over the sticky field-label column (.grain-field-col) that redirect
+  // is skipped instead, so the wheel scrolls .grains-scroll-region vertically like any normal list
+  // — that column doesn't move horizontally anyway. Native shift+wheel/trackpad horizontal swipes
+  // already arrive as deltaX and are left alone (early return) so they aren't double-handled.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       if (el.scrollWidth <= el.clientWidth) return;
       if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      if ((e.target as HTMLElement).closest('.grain-field-col')) return;
       el.scrollLeft += e.deltaY;
       e.preventDefault();
     };
@@ -129,63 +131,67 @@ export function TimeScrubberPanel({ result }: Props) {
 
   return (
     <div className="time-scrubber-panel">
-      <div className="grains-table-scroll" ref={scrollRef}>
-        {/* CSS grid, not a <table>: <table>'s own layout algorithm keeps a sticky <td> from ever
-         * fully occluding a scrolled-under sibling cell regardless of z-index/isolation (a
-         * table-specific painting quirk); a grid's sticky item is a plain block box, which avoids
-         * that. Emitting each field's row as a Fragment of `1 + grainCount` flat children lets the
-         * grid's implicit row-per-line auto-placement give the same one-row-per-field layout a
-         * <table> would, with row heights still auto-aligning to each row's tallest cell. */}
-        <div className="grains-grid" style={{ gridTemplateColumns: `auto repeat(${result.grains.length}, minmax(96px, 1fr))` }}>
-          <div className="grain-field-col" />
-          {result.grains.map((_, gid) => (
-            <div key={gid} className="grains-grid-header">
-              Grain {gid + 1}
-            </div>
-          ))}
-
-          <div className="grain-field-col grain-crosssection-col">Cross-section</div>
-          {result.grains.map((grain, gid) => {
-            const regression = result.multiChannels.regression[stepIndex]?.[gid] ?? 0;
-            return (
-              <div key={gid}>
-                <GrainPreviewCanvas
-                  preview={previews[gid]}
-                  regDist={regression}
-                  diameter={grain.diameter}
-                  showContours={false}
-                  size={96}
-                />
+      {/* Table + Consumed/Remaining scroll together as one region; the time slider below stays
+       * outside it (pinned, not scrolling away) — see .grains-scroll-region / .time-scrubber-panel. */}
+      <div className="grains-scroll-region">
+        <div className="grains-table-scroll" ref={scrollRef}>
+          {/* CSS grid, not a <table>: <table>'s own layout algorithm keeps a sticky <td> from ever
+           * fully occluding a scrolled-under sibling cell regardless of z-index/isolation (a
+           * table-specific painting quirk); a grid's sticky item is a plain block box, which avoids
+           * that. Emitting each field's row as a Fragment of `1 + grainCount` flat children lets the
+           * grid's implicit row-per-line auto-placement give the same one-row-per-field layout a
+           * <table> would, with row heights still auto-aligning to each row's tallest cell. */}
+          <div className="grains-grid" style={{ gridTemplateColumns: `auto repeat(${result.grains.length}, minmax(96px, 1fr))` }}>
+            <div className="grain-field-col" />
+            {result.grains.map((_, gid) => (
+              <div key={gid} className="grains-grid-header">
+                Grain {gid + 1}
               </div>
-            );
-          })}
+            ))}
 
-          {grainFields.map((field) => (
-            <Fragment key={field.label}>
-              <div className="grain-field-col">{fieldLabel(field.label, field.unit)}</div>
-              {result.grains.map((_, gid) => {
-                const value = field.values[gid];
-                return <div key={gid}>{value !== undefined ? statValue(value, field.unit) : '-'}</div>;
-              })}
-            </Fragment>
-          ))}
-        </div>
-      </div>
+            <div className="grain-field-col grain-crosssection-col">Cross-section</div>
+            {result.grains.map((grain, gid) => {
+              const regression = result.multiChannels.regression[stepIndex]?.[gid] ?? 0;
+              return (
+                <div key={gid}>
+                  <GrainPreviewCanvas
+                    preview={previews[gid]}
+                    regDist={regression}
+                    diameter={grain.diameter}
+                    showContours={false}
+                    size={96}
+                  />
+                </div>
+              );
+            })}
 
-      <div className="consumed-remaining">
-        <div className="consumed-remaining-card">
-          <h4>Consumed</h4>
-          <StatRow label="Burn Time" value={stat(time, 's')} />
-          <StatRow label="Impulse" value={stat(currentImpulse, 'Ns')} />
-          <StatRow label="Propellant Mass" value={stat(consumedMass, 'kg')} />
-          <StatRow label="ISP" value={stat(consumedISP, 's')} />
+            {grainFields.map((field) => (
+              <Fragment key={field.label}>
+                <div className="grain-field-col">{fieldLabel(field.label, field.unit)}</div>
+                {result.grains.map((_, gid) => {
+                  const value = field.values[gid];
+                  return <div key={gid}>{value !== undefined ? statValue(value, field.unit) : '-'}</div>;
+                })}
+              </Fragment>
+            ))}
+          </div>
         </div>
-        <div className="consumed-remaining-card">
-          <h4>Remaining</h4>
-          <StatRow label="Burn Time" value={stat(remainingTime, 's')} />
-          <StatRow label="Impulse" value={stat(remainingImpulse, 'Ns')} />
-          <StatRow label="Propellant Mass" value={stat(currentMassRemaining, 'kg')} />
-          <StatRow label="ISP" value={stat(remainingISP, 's')} />
+
+        <div className="consumed-remaining">
+          <div className="consumed-remaining-card">
+            <h4>Consumed</h4>
+            <StatRow label="Burn Time" value={stat(time, 's')} />
+            <StatRow label="Impulse" value={stat(currentImpulse, 'Ns')} />
+            <StatRow label="Propellant Mass" value={stat(consumedMass, 'kg')} />
+            <StatRow label="ISP" value={stat(consumedISP, 's')} />
+          </div>
+          <div className="consumed-remaining-card">
+            <h4>Remaining</h4>
+            <StatRow label="Burn Time" value={stat(remainingTime, 's')} />
+            <StatRow label="Impulse" value={stat(remainingImpulse, 'Ns')} />
+            <StatRow label="Propellant Mass" value={stat(currentMassRemaining, 'kg')} />
+            <StatRow label="ISP" value={stat(remainingISP, 's')} />
+          </div>
         </div>
       </div>
 

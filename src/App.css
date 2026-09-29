@@ -1217,6 +1217,12 @@ button.active {
 
 .results-panel-footer {
   flex: 0 0 auto;
+  /* Motor Statistics is a `repeat(auto-fill, minmax(160px, 1fr))` grid (see .summary-stats) — a
+   * narrow-but-tall ("too square") window wraps it into many rows, and without a cap it would just
+   * keep growing and squeeze the tab content above it down to nothing. Past this height it scrolls
+   * internally instead. */
+  max-height: 35%;
+  overflow-y: auto;
 }
 
 .tab-bar {
@@ -1342,20 +1348,34 @@ button.active {
   font-size: 13px;
 }
 
-/* Deliberately block flow, not a flex column: `.results-panel-body > *` already makes this panel
- * itself `flex: 1; min-height: 0; overflow-y: auto`, so it scrolls as a whole when its content
- * (table + consumed/remaining + slider) doesn't fit. Making it a flex container on top of that
- * would turn its own children into flex items sharing that bounded height — and the grain table
- * would lose that fight: `.grains-table-scroll`'s `overflow-x: auto` forces its `overflow-y` to
- * compute as `auto` too per the CSS overflow spec, which zeroes a flex item's automatic minimum
- * size, so it would get squashed down to a sliver instead of the panel scrolling normally. */
+/* A flex column, not block flow: the time slider (and its "t = ..." header) below need to stay put
+ * — `flex-shrink: 0` on both — instead of scrolling out of view, with the table+Consumed/Remaining
+ * group (`.grains-scroll-region`, `flex: 1 1 auto`) taking the bounded leftover height and
+ * scrolling internally. Keeping the pinned footer to just the header+slider (not also the
+ * Consumed/Remaining cards) means it stays small enough to fit even when the panel itself is
+ * squeezed short — see .grains-scroll-region. `.results-panel-body > *` still gives this panel its
+ * own bounded height via `flex: 1; min-height: 0; overflow-y: auto`, which becomes a no-op once
+ * these children fit exactly within it. */
 .time-scrubber-panel {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The scrollable region: grain table + Consumed/Remaining move together, vertically, while the
+ * time slider stays pinned below (see .time-scrubber-panel). `.grains-table-scroll` keeps its own
+ * separate horizontal scroll for wide grain tables — this box only ever scrolls vertically. */
+.grains-scroll-region {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .time-scrubber-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1367,6 +1387,7 @@ button.active {
  * color past it) plus a rounded-square thumb, rather than the browser's unstyled default — the
  * fill uses --slider-progress, set inline per render from the current step. */
 .time-slider {
+  flex-shrink: 0;
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -1423,6 +1444,7 @@ button.active {
 }
 
 .consumed-remaining {
+  margin-top: 12px;
   display: flex;
   gap: 12px;
 }
@@ -1467,7 +1489,9 @@ button.active {
 }
 
 /* Grain columns can run wide (many grains), so the grid scrolls horizontally within its own box
- * rather than pushing the rest of the panel/page wider. */
+ * rather than pushing the rest of the panel/page wider. Vertical scrolling (rows overflowing) is
+ * handled one level up by .grains-scroll-region instead — sharing that with the Consumed/Remaining
+ * cards below it, which aren't part of this horizontally-scrolling grid. */
 .grains-table-scroll {
   overflow-x: auto;
 }
