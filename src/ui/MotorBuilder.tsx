@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultGrainConfig } from '../physics/grains';
+import type { TransientSettings } from '../physics/transient/options';
 import type { GrainConfig, MotorConfigProperties, MotorDesign, NozzleConfig } from '../physics/types';
 import { CollectionList } from './CollectionList';
 import { PropellantEditorDialog } from './PropellantEditorDialog';
@@ -7,7 +8,7 @@ import { usePropellantLibrary } from './PropellantLibraryContext';
 import { PropertyEditor } from './PropertyEditor';
 import { Select } from './Select';
 
-export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | null;
+export type Selection = { kind: 'grain'; index: number } | { kind: 'nozzle' } | { kind: 'config' } | { kind: 'transient' } | null;
 
 interface Props {
   design: MotorDesign;
@@ -19,7 +20,7 @@ interface Props {
 export function MotorBuilder({ design, selection, onSelectionChange, onDesignChange }: Props) {
   const [newGrainType, setNewGrainType] = useState<GrainConfig['type']>('BATES');
   const [highlightedGrainIndex, setHighlightedGrainIndex] = useState<number | null>(null);
-  const [highlightedKind, setHighlightedKind] = useState<'nozzle' | 'config' | null>(null);
+  const [highlightedKind, setHighlightedKind] = useState<'nozzle' | 'config' | 'transient' | null>(null);
   const [showPropellantEditor, setShowPropellantEditor] = useState(false);
   const { library } = usePropellantLibrary();
 
@@ -56,6 +57,10 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
 
   const applyConfig = (config: MotorConfigProperties) => {
     onDesignChange((d) => ({ ...d, config }));
+  };
+
+  const applyTransient = (transient: TransientSettings) => {
+    onDesignChange((d) => ({ ...d, transient }));
   };
 
   const addGrain = () => {
@@ -124,9 +129,11 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
           grain={selection?.kind === 'grain' ? design.grains[selection.index] : null}
           nozzle={design.nozzle}
           config={design.config}
+          transient={design.transient}
           onApplyGrain={applyGrain}
           onApplyNozzle={applyNozzle}
           onApplyConfig={applyConfig}
+          onApplyTransient={applyTransient}
           onClose={closeEditor}
         />
       </div>
@@ -154,6 +161,7 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
         <CollectionList
           grains={design.grains}
           grainIds={grainIds}
+          transient={design.transient}
           highlightedGrainIndex={highlightedGrainIndex}
           highlightedKind={highlightedKind}
           onHighlightGrain={(i) => {
@@ -182,6 +190,15 @@ export function MotorBuilder({ design, selection, onSelectionChange, onDesignCha
             setHighlightedGrainIndex(null);
             setHighlightedKind('config');
             onSelectionChange({ kind: 'config' });
+          }}
+          onHighlightTransient={() => {
+            setHighlightedGrainIndex(null);
+            setHighlightedKind('transient');
+          }}
+          onEditTransient={() => {
+            setHighlightedGrainIndex(null);
+            setHighlightedKind('transient');
+            onSelectionChange({ kind: 'transient' });
           }}
           onReorderGrains={reorderGrains}
         />

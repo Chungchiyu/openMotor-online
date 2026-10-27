@@ -34,8 +34,10 @@ export interface RicMotorImportResult {
 }
 
 export function ricMotorDataFromDesign(design: MotorDesign): unknown {
+  // The transient model's settings are this app's own (see MotorDesign.transient), not part of a .ric.
+  const { transient: _transient, ...ric } = design;
   return {
-    ...design,
+    ...ric,
     grains: design.grains.map((grain) =>
       grain.type === 'Custom Grain'
         ? { type: grain.type, properties: { ...grain.properties, points: [grain.properties.points], dxfUnit: 'm' } }

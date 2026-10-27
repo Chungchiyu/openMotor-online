@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { importMotorRic, exportMotorRic } from '../index';
 import { writeRicFile, RicFileType } from '../envelope';
+import { defaultTransientSettings } from '../../physics/transient/options';
 import type { MotorDesign } from '../../physics/types';
 
 const config = {
@@ -143,5 +144,16 @@ describe('Custom Grain import handling', () => {
     const { design: reimported, errors } = importMotorRic(text);
     expect(errors).toHaveLength(0);
     expect(reimported.grains).toEqual(design.grains);
+  });
+});
+
+describe('transient model settings', () => {
+  it('are left out of an exported .ric, which stays identical to the same design without them', () => {
+    const design: MotorDesign = { grains: [], propellant: null, nozzle, config };
+    const withTransient: MotorDesign = { ...design, transient: { ...defaultTransientSettings(), enabled: true } };
+    const text = exportMotorRic(withTransient);
+    expect(text).toBe(exportMotorRic(design));
+    expect(text).not.toMatch(/transient/);
+    expect(importMotorRic(text).design.transient).toBeUndefined();
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { buildGrain } from '../physics/grains';
 import { PerforatedGrain } from '../physics/grains/base';
 import { computeGrainPreview } from '../physics/preview';
+import { defaultTransientSettings, transientPreset, type TransientSettings } from '../physics/transient/options';
 import {
   defaultMotorConfig,
   type BatesGrainProperties,
@@ -26,6 +27,7 @@ import { GrainPreviewPanel } from './GrainPreviewPanel';
 import { NozzlePreview } from './NozzlePreview';
 import { PolygonEditor } from './PolygonEditor';
 import { CheckboxField, NumberField, SelectField } from './fields';
+import { TransientForm } from './TransientForm';
 
 const inhibitedOptions: { value: InhibitedEnds; label: string }[] = [
   { value: 'Neither', label: 'Neither' },
@@ -420,19 +422,33 @@ interface Props {
   grain: GrainConfig | null;
   nozzle: NozzleConfig;
   config: MotorConfigProperties;
+  transient: TransientSettings | undefined;
   onApplyGrain: (index: number, grain: GrainConfig) => void;
   onApplyNozzle: (nozzle: NozzleConfig) => void;
   onApplyConfig: (config: MotorConfigProperties) => void;
+  onApplyTransient: (transient: TransientSettings) => void;
   /** Called after Apply or Cancel, for every kind — the editor always closes back to the empty
    * state rather than staying open on whatever was just applied/discarded. */
   onClose: () => void;
 }
 
-export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain, onApplyNozzle, onApplyConfig, onClose }: Props) {
+export function PropertyEditor({
+  selection,
+  grain,
+  nozzle,
+  config,
+  transient,
+  onApplyGrain,
+  onApplyNozzle,
+  onApplyConfig,
+  onApplyTransient,
+  onClose,
+}: Props) {
   const selectionKey = JSON.stringify(selection);
   const [draftGrain, setDraftGrain] = useState<GrainConfig | null>(grain);
   const [draftNozzle, setDraftNozzle] = useState<NozzleConfig>(nozzle);
   const [draftConfig, setDraftConfig] = useState<MotorConfigProperties>(config);
+  const [draftTransient, setDraftTransient] = useState<TransientSettings>(transient ?? defaultTransientSettings());
 
   // Reset the draft only when the SELECTION changes (a different grain, or switching between
   // grain/nozzle/config) — not on every upstream design change — so edits in progress aren't
@@ -442,6 +458,7 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
     setDraftGrain(grain);
     setDraftNozzle(nozzle);
     setDraftConfig(config);
+    setDraftTransient(transient ?? defaultTransientSettings());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey]);
 
@@ -469,7 +486,7 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
   }, [builtGrain]);
 
   if (!selection) {
-    return <div className="property-editor empty">Double-click a grain, nozzle, or config row to edit its properties.</div>;
+    return <div className="property-editor empty">Double-click a grain, nozzle, config or transient row to edit its properties.</div>;
   }
 
   if (selection.kind === 'nozzle') {
@@ -510,6 +527,37 @@ export function PropertyEditor({ selection, grain, nozzle, config, onApplyGrain,
           <ApplyCancelRow
             onApply={() => {
               onApplyConfig(draftConfig);
+              onClose();
+            }}
+            onCancel={onClose}
+          />
+        </div>
+      </FormValidityProvider>
+    );
+  }
+
+  if (selection.kind === 'transient') {
+    return (
+      <FormValidityProvider>
+        <div className="property-editor">
+          <div className="property-editor-scroll">
+            <h3>Transient Model</h3>
+            <div className="propellant-preset-row">
+              <button
+                title="The options fitted to public sugar-motor static tests (sugar-ballistics' validated preset)"
+                onClick={() => setDraftTransient(transientPreset('validated', draftTransient))}
+              >
+                Validated Preset
+              </button>
+              <button title="Every effect off: openMotor plus chamber filling and blow-down" onClick={() => setDraftTransient(transientPreset('openmotor', draftTransient))}>
+                openMotor Preset
+              </button>
+            </div>
+            <TransientForm settings={draftTransient} nozzleEfficiency={nozzle.efficiency} onChange={setDraftTransient} />
+          </div>
+          <ApplyCancelRow
+            onApply={() => {
+              onApplyTransient(draftTransient);
               onClose();
             }}
             onCancel={onClose}

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import Sortable from 'sortablejs';
+import type { TransientSettings } from '../physics/transient/options';
 import type { GrainConfig } from '../physics/types';
 
 interface Props {
@@ -7,19 +8,28 @@ interface Props {
   /** Stable per-grain identity, parallel to `grains` (same length/order) — see the comment on row
    * `key` below for why this can't just be the array index. */
   grainIds: number[];
+  transient: TransientSettings | undefined;
   /** The row highlighted for Edit/Copy/Delete — independent of which editor is currently open
    * (see the double-click note below). */
   highlightedGrainIndex: number | null;
-  /** Which of the singleton rows (Nozzle/Config) is highlighted — the same role
+  /** Which of the singleton rows (Nozzle/Config/Transient) is highlighted — the same role
    * `highlightedGrainIndex` plays for grain rows. */
-  highlightedKind: 'nozzle' | 'config' | null;
+  highlightedKind: 'nozzle' | 'config' | 'transient' | null;
   onHighlightGrain: (index: number) => void;
   onHighlightNozzle: () => void;
   onHighlightConfig: () => void;
   onEditGrain: (index: number) => void;
   onEditNozzle: () => void;
   onEditConfig: () => void;
+  onHighlightTransient: () => void;
+  onEditTransient: () => void;
   onReorderGrains: (oldIndex: number, newIndex: number) => void;
+}
+
+function describeTransient(t: TransientSettings | undefined): string {
+  if (!t?.enabled) return 'off (openMotor)';
+  const on = [t.ignition && 'ignition', t.tailOff && 'tail-off', t.smoothBurnRate && 'smooth burn rate', t.calibration && 'calibrated'].filter(Boolean);
+  return on.length > 0 ? `on: ${on.join(', ')}` : 'on: chamber filling only';
 }
 
 function describeGrain(g: GrainConfig): string {
@@ -53,6 +63,7 @@ function describeGrain(g: GrainConfig): string {
 export function CollectionList({
   grains,
   grainIds,
+  transient,
   highlightedGrainIndex,
   highlightedKind,
   onHighlightGrain,
@@ -61,6 +72,8 @@ export function CollectionList({
   onEditGrain,
   onEditNozzle,
   onEditConfig,
+  onHighlightTransient,
+  onEditTransient,
   onReorderGrains,
 }: Props) {
   const grainTbodyRef = useRef<HTMLTableSectionElement>(null);
@@ -142,6 +155,11 @@ export function CollectionList({
               <td>—</td>
               <td>Config</td>
               <td>limits &amp; simulation settings</td>
+            </tr>
+            <tr className={highlightedKind === 'transient' ? 'selected' : ''} onClick={onHighlightTransient} onDoubleClick={onEditTransient}>
+              <td>—</td>
+              <td>Transient</td>
+              <td>{describeTransient(transient)}</td>
             </tr>
           </tbody>
         </table>

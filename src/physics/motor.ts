@@ -25,6 +25,9 @@ export type SimProgress = { phase: 'setup' | 'run'; fraction: number };
 export class Motor {
   design: MotorDesign;
   grains: Grain[];
+  /** Every grain has had `simulationSetup` — the transient model (transient/run.ts) sets the grains
+   * up once and then runs both itself and, for comparison, this simulation on them. */
+  private grainsReady = false;
 
   constructor(design: MotorDesign) {
     this.design = design;
@@ -106,7 +109,7 @@ export class Motor {
    * potentially slow part (`simulationSetup` on an FMM grain can take seconds — see fmmGrain.ts),
    * instead of that running synchronously before the progress dialog ever gets a chance to paint.
    */
-  private validateDesign(): SimulationResult {
+  validateDesign(): SimulationResult {
     const simRes = new SimulationResult(this.design, this.grains);
 
     if (this.grains.length === 0) {
@@ -130,7 +133,7 @@ export class Motor {
 
   /** True if `simRes` (as returned by `validateDesign`) has any errors that make the design
    * unrunnable. */
-  private hasBlockingErrors(simRes: SimulationResult): boolean {
+  hasBlockingErrors(simRes: SimulationResult): boolean {
     return simRes.getAlertsByLevel(SimAlertLevel.ERROR).length > 0;
   }
 
@@ -246,7 +249,7 @@ export class Motor {
 
   /** The alert checks run once after the timestep loop finishes — shared by `runSimulation` and
    * `runSimulationChunked`. */
-  private finalizeSimulation(simRes: SimulationResult, propellant: PropellantConfig): void {
+  finalizeSimulation(simRes: SimulationResult, propellant: PropellantConfig): void {
     simRes.success = true;
 
     if (simRes.getPeakMassFlux() > this.design.config.maxMassFlux) {
@@ -290,7 +293,8 @@ export class Motor {
     const simRes = this.validateDesign();
     if (this.hasBlockingErrors(simRes)) return simRes;
 
-    this.grains.forEach((grain) => grain.simulationSetup(this.design.config));
+    if (!this.grainsReady) this.grains.forEach((grain) => grain.simulationSetup(this.design.config));
+    this.grainsReady = true;
     const { propellant, density, motorVolume, perGrainReg: initialReg } = this.initializeChannels(simRes);
     let perGrainReg = initialReg;
 
@@ -344,24 +348,7 @@ export class Motor {
     const simRes = this.validateDesign();
     if (this.hasBlockingErrors(simRes)) return simRes;
 
-    for (let gid = 0; gid < this.grains.length; gid++) {
-      const grain = this.grains[gid];
-      if (grain.simulationSetupChunked) {
-        // eslint-disable-next-line no-await-in-loop
-        const completed = await grain.simulationSetupChunked(
-          this.design.config,
-          (frac) => onProgress({ phase: 'setup', fraction: (gid + frac) / this.grains.length }),
-          isCancelled,
-        );
-        if (!completed) return null;
-      } else {
-        grain.simulationSetup(this.design.config);
-        // eslint-disable-next-line no-await-in-loop
-        await yieldToEventLoop();
-        if (isCancelled()) return null;
-      }
-      onProgress({ phase: 'setup', fraction: (gid + 1) / this.grains.length });
-    }
+    if (!(await this.setupGrainsChunked(onProgress, isCancelled))) return null;
 
     const { propellant, density, motorVolume, perGrainReg: initialReg } = this.initializeChannels(simRes);
     let perGrainReg = initialReg;
@@ -392,6 +379,34 @@ export class Motor {
     this.finalizeSimulation(simRes, propellant);
     onProgress({ phase: 'run', fraction: 1 });
     return simRes;
+  }
+
+  /**
+   * Runs every grain's setup (once per Motor), yielding between grains and inside the slow ones —
+   * the setup half of `runSimulationChunked`, see point 2 there. Resolves `false` if cancelled.
+   */
+  async setupGrainsChunked(onProgress: (progress: SimProgress) => void, isCancelled: () => boolean): Promise<boolean> {
+    if (this.grainsReady) return true;
+    for (let gid = 0; gid < this.grains.length; gid++) {
+      const grain = this.grains[gid];
+      if (grain.simulationSetupChunked) {
+        // eslint-disable-next-line no-await-in-loop
+        const completed = await grain.simulationSetupChunked(
+          this.design.config,
+          (frac) => onProgress({ phase: 'setup', fraction: (gid + frac) / this.grains.length }),
+          isCancelled,
+        );
+        if (!completed) return false;
+      } else {
+        grain.simulationSetup(this.design.config);
+        // eslint-disable-next-line no-await-in-loop
+        await yieldToEventLoop();
+        if (isCancelled()) return false;
+      }
+      onProgress({ phase: 'setup', fraction: (gid + 1) / this.grains.length });
+    }
+    this.grainsReady = true;
+    return true;
   }
 }
 

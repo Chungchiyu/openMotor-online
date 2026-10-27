@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python (scripts/transient_reference.py)
+__pycache__/

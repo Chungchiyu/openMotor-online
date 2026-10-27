@@ -1,19 +1,33 @@
 /**
  * Save/load for motor designs: just a localStorage autosave, so a reload doesn't lose work. Stored
  * as `.ric`'s YAML (via exportMotorRic/importMotorRic) rather than plain JSON, so the app has one
- * motor-design format everywhere instead of a separate one just for this.
+ * motor-design format everywhere instead of a separate one just for this. The transient model's
+ * settings aren't part of a `.ric`, so they're kept beside it under their own key.
  */
+import type { TransientSettings } from './physics/transient/options';
 import type { MotorDesign } from './physics/types';
 import { importMotorRic, exportMotorRic } from './ric';
 
 const STORAGE_KEY = 'openmotor-online:design:v1';
+const TRANSIENT_KEY = 'openmotor-online:transient:v1';
 
 export function autosave(design: MotorDesign): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, exportMotorRic(design));
+    if (design.transient) window.localStorage.setItem(TRANSIENT_KEY, JSON.stringify(design.transient));
+    else window.localStorage.removeItem(TRANSIENT_KEY);
   } catch {
     // localStorage can throw in private-browsing/blocked-storage contexts; autosave is a
     // convenience, not a guarantee, so failing silently is fine here.
+  }
+}
+
+function loadAutosavedTransient(): TransientSettings | undefined {
+  try {
+    const raw = window.localStorage.getItem(TRANSIENT_KEY);
+    return raw ? (JSON.parse(raw) as TransientSettings) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -26,7 +40,9 @@ export function loadAutosave(): MotorDesign | null {
   }
   if (!raw) return null;
   try {
-    return importMotorRic(raw).design;
+    const design = importMotorRic(raw).design;
+    const transient = loadAutosavedTransient();
+    return transient ? { ...design, transient } : design;
   } catch {
     // Autosaves written before this app switched to `.ric`/YAML are plain JSON — fall back to
     // that once, so upgrading past this point doesn't discard whatever the user had in progress.

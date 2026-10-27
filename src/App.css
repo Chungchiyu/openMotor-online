@@ -1046,6 +1046,15 @@ button.active {
   opacity: 0.8;
 }
 
+.property-editor-form h4 {
+  /* A sub-heading inside a settings grid (the transient model's groups) spans both columns. */
+  grid-column: 1 / -1;
+}
+
+.property-editor-form .field > input[type='checkbox'] {
+  justify-self: end;
+}
+
 .property-editor-form .field-note {
   /* Not a .field itself (no label/input pair) — span both grid columns instead of landing in the
    * label column and leaving the input column blank next to it. */

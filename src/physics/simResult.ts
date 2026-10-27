@@ -36,6 +36,15 @@ export const multiValueChannelMeta: Record<MultiValueChannel, { label: string; u
   machNumber: { label: 'Core Mach Number', unit: '' },
 };
 
+/** Channels only a transient-model run (transient/run.ts) has. Not part of the CSV export, whose
+ * columns match openMotor's. */
+export type TransientChannel = 'nozzleMassFlow' | 'litFraction';
+
+export const transientChannelMeta: Record<TransientChannel, { label: string; unit: string }> = {
+  nozzleMassFlow: { label: 'Nozzle Mass Flow', unit: 'kg/s' },
+  litFraction: { label: 'Burning Surface Lit', unit: '%' },
+};
+
 // Matches the exact insertion order of the `channels` dict in motorlib/simResult.py's
 // `SimulationResult.__init__` — Python 3.7+ dicts preserve insertion order, and this is what
 // `getCSV`'s column order derives from, so it's reproduced here rather than just concatenating the
@@ -84,6 +93,10 @@ export class SimulationResult {
     web: [],
     machNumber: [],
   };
+
+  /** Set on a transient-model run: its extra channels, and the plain openMotor run of the same
+   * design when the comparison is switched on. */
+  transient: { channels: Record<TransientChannel, number[]>; baseline: SimulationResult | null } | null = null;
 
   constructor(design: MotorDesign, grains: Grain[]) {
     this.design = design;

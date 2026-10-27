@@ -29,6 +29,15 @@ the physics engine is a from-scratch TypeScript port of openMotor's Python `moto
   autosave on top, CSV and RASP `.eng` export of simulation results, BurnSim 3.0 (`.bsx`)
   import/export (BATES and Moon Burner only — Star Grain has no BurnSim equivalent in the original
   either), and PNG export of the results graph. No DXF import yet.
+- **Transient model (optional):** a port of [sugar-ballistics](https://github.com/Chungchiyu/sugar-ballistics)'
+  chamber model, as [DIVER-sim](https://github.com/Chungchiyu/DIVER-sim) uses it: the gas mass in the chamber is
+  stepped instead of assuming a steady pressure, so the chamber fills at ignition and blows down at burnout. Off by
+  default (the Transient row in the motor list); once on, each effect has its own switch: ignition transient (igniter,
+  nozzle plug, flame spread over cores then ends), burnout-web spread (tail-off), a smooth burn-rate law across the
+  propellant's bands, and static-firing calibration (c* efficiency, burn-rate scale, nozzle efficiency), with
+  sugar-ballistics' "validated" and "openmotor" presets. Optionally draws plain openMotor beside it, dashed. Kept in
+  the app's own saves (autosave, File Manager), never in `.ric` files. Reference-tested against the Python original
+  (`scripts/transient_reference.py`).
 - **Simulation UX:** a real progress bar with a working Cancel button — the run yields to the
   browser before any work starts (so the dialog is guaranteed to paint immediately, even for a
   design whose FMM grain setup alone can take seconds), yields between each grain's setup too, and

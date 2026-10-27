@@ -6,6 +6,7 @@ import { buildEngFile, type EngSettings } from './exporters/eng';
 import { useHistory } from './history';
 import { Motor, type SimProgress } from './physics/motor';
 import type { SimulationResult } from './physics/simResult';
+import { runTransientChunked } from './physics/transient/run';
 import { defaultMotorConfig, defaultNozzle, type MotorDesign } from './physics/types';
 import { autosave, downloadTextFile, loadAutosave, loadOpenRecordId, saveOpenRecordId } from './persistence';
 import { exportMotorRic, importMotorRic } from './ric';
@@ -203,12 +204,12 @@ function AppInner() {
     cancelRef.current = false;
     setRunProgress({ phase: 'setup', fraction: 0 });
     const runDesign = design;
-    const motor = new Motor(runDesign);
     try {
-      const simResult = await motor.runSimulationChunked(
-        (p) => setRunProgress(p),
-        () => cancelRef.current,
-      );
+      const onProgress = (p: SimProgress) => setRunProgress(p);
+      const isCancelled = () => cancelRef.current;
+      const simResult = runDesign.transient?.enabled
+        ? await runTransientChunked(runDesign, runDesign.transient, onProgress, isCancelled)
+        : await new Motor(runDesign).runSimulationChunked(onProgress, isCancelled);
       if (simResult) {
         setResult(simResult);
         setRanDesign(runDesign);

@@ -2,6 +2,7 @@
  * between the UI, the simulation and JSON save files — deliberately plain objects/interfaces
  * rather than a port of motorlib's Property/PropertyCollection class hierarchy, which exists in
  * Python mainly to support Qt widget binding that has no equivalent here. */
+import type { TransientSettings } from './transient/options';
 
 export type InhibitedEnds = 'Neither' | 'Top' | 'Bottom' | 'Both';
 
@@ -166,6 +167,9 @@ export interface MotorDesign {
   propellant: PropellantConfig | null;
   nozzle: NozzleConfig;
   config: MotorConfigProperties;
+  /** The transient model's switches and options (physics/transient/). This app only: never written
+   * to `.ric` files, which stay byte-compatible with the desktop app. Absent = off. */
+  transient?: TransientSettings;
 }
 
 // Plain string-literal unions + const lookup objects rather than `enum` — the project's

@@ -14,23 +14,31 @@ import { Line } from 'react-chartjs-2';
 import {
   multiValueChannelMeta,
   singleValueChannelMeta,
+  transientChannelMeta,
   type MultiValueChannel,
   type SimulationResult,
   type SingleValueChannel,
+  type TransientChannel,
 } from '../physics/simResult';
 import { convert } from '../physics/units';
 import { useUnits } from './UnitsContext';
 
 ChartJS.register(LinearScale, PointElement, LineElement, Title, Tooltip, Legend, zoomPlugin);
 
-export type ChannelKey = SingleValueChannel | MultiValueChannel;
+export type ChannelKey = SingleValueChannel | MultiValueChannel | TransientChannel;
 export type XChannelKey = 'time' | 'regression' | 'web';
 
 // Re-exported so existing importers (ResultsPanel) don't need to know this moved to simResult.ts,
 // which is the single source of truth for channel metadata (shared with getCSV).
-export { multiValueChannelMeta, singleValueChannelMeta };
+export { multiValueChannelMeta, singleValueChannelMeta, transientChannelMeta };
 
 const isMultiValue = (ch: ChannelKey): ch is MultiValueChannel => ch in multiValueChannelMeta;
+const isTransient = (ch: ChannelKey): ch is TransientChannel => ch in transientChannelMeta;
+const channelMeta = (ch: ChannelKey) =>
+  isTransient(ch) ? transientChannelMeta[ch] : isMultiValue(ch) ? multiValueChannelMeta[ch] : singleValueChannelMeta[ch];
+
+/** The openMotor run a transient result is compared with: the same colour, dashed and thinner. */
+const baselineStyle = { borderDash: [6, 4], borderWidth: 1.5 };
 
 const palette = ['#b91c1c', '#1d4ed8', '#15803d', '#a16207', '#7c3aed', '#0891b2', '#be185d', '#4d7c0f'];
 
@@ -64,8 +72,27 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
     const datasets: object[] = [];
     let colorIdx = 0;
 
+    const baseline = result.transient?.baseline ?? null;
+    const baselineX = baseline ? getXSeries(baseline, xChannel, selectedGrains, xUnit) : [];
+
     for (const ch of yChannels) {
-      if (isMultiValue(ch)) {
+      if (isTransient(ch)) {
+        const values = result.transient?.channels[ch];
+        if (!values) continue;
+        const meta = transientChannelMeta[ch];
+        const yUnit = unitFor(meta.unit);
+        const color = palette[colorIdx % palette.length];
+        colorIdx++;
+        datasets.push({
+          label: meta.label,
+          data: xSeries.map((x, i) => ({ x, y: convert(values[i], meta.unit, yUnit) })),
+          borderColor: color,
+          backgroundColor: color,
+          pointRadius: 0,
+          borderWidth: 2,
+          yAxisID: ch,
+        });
+      } else if (isMultiValue(ch)) {
         const meta = multiValueChannelMeta[ch];
         const yUnit = unitFor(meta.unit);
         const grains = selectedGrains.length > 0 ? selectedGrains : [0];
@@ -81,6 +108,17 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
             borderWidth: 2,
             yAxisID: ch,
           });
+          if (baseline) {
+            datasets.push({
+              label: `${meta.label} (G${g + 1}, openMotor)`,
+              data: baselineX.map((x, i) => ({ x, y: convert(baseline.multiChannels[ch][i]?.[g] ?? 0, meta.unit, yUnit) })),
+              borderColor: color,
+              backgroundColor: color,
+              pointRadius: 0,
+              ...baselineStyle,
+              yAxisID: ch,
+            });
+          }
         }
       } else {
         const meta = singleValueChannelMeta[ch];
@@ -96,6 +134,17 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
           borderWidth: 2,
           yAxisID: ch,
         });
+        if (baseline) {
+          datasets.push({
+            label: `${meta.label} (openMotor)`,
+            data: baselineX.map((x, i) => ({ x, y: convert(baseline.channels[ch][i], meta.unit, yUnit) })),
+            borderColor: color,
+            backgroundColor: color,
+            pointRadius: 0,
+            ...baselineStyle,
+            yAxisID: ch,
+          });
+        }
       }
     }
 
@@ -114,7 +163,7 @@ export function ThrustChart({ result, xChannel, yChannels, selectedGrains }: Pro
     yChannels.forEach((ch) => {
       if (seenAxes.has(ch)) return;
       seenAxes.add(ch);
-      const meta = isMultiValue(ch) ? multiValueChannelMeta[ch] : singleValueChannelMeta[ch];
+      const meta = channelMeta(ch);
       const yUnit = unitFor(meta.unit);
       const position = seenAxes.size === 1 ? 'left' : 'right';
       scales[ch] = {

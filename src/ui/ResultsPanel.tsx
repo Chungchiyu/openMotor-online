@@ -6,6 +6,7 @@ import {
   multiValueChannelMeta,
   singleValueChannelMeta,
   ThrustChart,
+  transientChannelMeta,
   type ChannelKey,
   type XChannelKey,
 } from './ThrustChart';
@@ -37,6 +38,12 @@ const yOptions: { value: ChannelKey; label: string }[] = [
   { value: 'machNumber', label: multiValueChannelMeta.machNumber.label },
 ];
 
+/** Only a transient-model run has these. */
+const transientYOptions: { value: ChannelKey; label: string }[] = [
+  { value: 'nozzleMassFlow', label: transientChannelMeta.nozzleMassFlow.label },
+  { value: 'litFraction', label: transientChannelMeta.litFraction.label },
+];
+
 type Tab = 'graph' | 'grains' | 'alerts';
 
 export function ResultsPanel({ result, running }: Props) {
@@ -48,6 +55,9 @@ export function ResultsPanel({ result, running }: Props) {
   const toggleY = (ch: ChannelKey) => {
     setYChannels((prev) => (prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]));
   };
+
+  // A ticked transient-only channel stays ticked, but isn't drawn for an openMotor result.
+  const shownYChannels = result?.transient ? yChannels : yChannels.filter((ch) => !(ch in transientChannelMeta));
 
   const numGrains = result?.grains.length ?? 0;
   const effectiveGrains = selectedGrains ?? Array.from({ length: numGrains }, (_, i) => i);
@@ -101,7 +111,7 @@ export function ResultsPanel({ result, running }: Props) {
               </fieldset>
               <fieldset>
                 <legend>Y Axis</legend>
-                {yOptions.map((o) => (
+                {(result?.transient ? [...yOptions, ...transientYOptions] : yOptions).map((o) => (
                   <label key={o.value}>
                     <input type="checkbox" checked={yChannels.includes(o.value)} onChange={() => toggleY(o.value)} />
                     {o.label}
@@ -132,7 +142,7 @@ export function ResultsPanel({ result, running }: Props) {
               )}
             </div>
             <div className="graph-tab-chart">
-              <ThrustChart result={result} xChannel={xChannel} yChannels={yChannels} selectedGrains={effectiveGrains} />
+              <ThrustChart result={result} xChannel={xChannel} yChannels={shownYChannels} selectedGrains={effectiveGrains} />
             </div>
           </div>
         )}
